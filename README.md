@@ -16,7 +16,7 @@ graph TB
         dns["JBDNS01\nPi-hole v6 LXC\nDNS · DHCP · Tailscale router/exit-node"]
         nas["JBNAS01\nTrueNAS SCALE\nRAIDZ1 SSD + HDD stripe"]
         vm02["JBVM02\nOperations origin\nClaude Code / SSH hub"]
-        vm03["JBVM03\nMinecraft\nEnigmatica 10"]
+        vm03["JBVM03\nProd application\nserver"]
 
         subgraph k8s["JBK8S01 · k3s"]
             argocd["ArgoCD\nGitOps controller"]
@@ -57,7 +57,7 @@ graph TB
 | JBK8S01 | k3s cluster | Ubuntu 24.04 | 4 vCPU · 8 GB · 40 GB |
 | JBVM01 | Jump box / desktop | Debian 13 | 2 vCPU · 4 GB |
 | JBVM02 | Operations origin | Ubuntu 24.04 | 2 vCPU · 8 GB |
-| JBVM03 | Minecraft (Enigmatica 10) | Ubuntu 24.04 | 6 vCPU · 14 GB |
+| JBVM03 | Production application server | Ubuntu 24.04 | 6 vCPU · 14 GB |
 
 Total guest allocation: 19 vCPU on a 16-thread host, a deliberate mild overcommit (see [Design Decisions](#design-decisions)).
 
@@ -85,7 +85,7 @@ Observability came next and went further than most homelab setups bother with: k
 
 ### Phase 2: centralised logging ✓
 
-Added Loki in SingleBinary mode (the right choice for a single-node homelab — no gateway, no compactor overhead) with a 7-day retention window on a local-path PV. Promtail runs as a DaemonSet for in-cluster pod logs and as a standalone agent on every external host — NAS, jump box, operations VM, Minecraft server — shipping systemd journal and syslog over the network.
+Added Loki in SingleBinary mode (the right choice for a single-node homelab — no gateway, no compactor overhead) with a 7-day retention window on a local-path PV. Promtail runs as a DaemonSet for in-cluster pod logs and as a standalone agent on every external host — NAS, jump box, operations VM, production server — shipping systemd journal and syslog over the network.
 
 The interesting part of this phase wasn't the software — it was learning how Loki's label cardinality model differs from Prometheus's, and why the `uid` field on Grafana datasources matters more in version 13 than it used to.
 
@@ -155,7 +155,7 @@ A root Application at `bootstrap/root-app.yaml` watches the `apps/` directory. A
 The Alertmanager Discord webhook URL and Proxmox API token live in `charts/secrets/` as `SealedSecret` CRDs. The Bitnami Sealed Secrets controller decrypts them in-cluster using a master key that never leaves the cluster. The encrypted blobs are useless without that key, so committing them is safe even on a public repo. Cluster rebuild now requires only the master key restore (one secret) instead of recreating every credential by hand. The trade-off is that the master key is itself a critical out-of-Git artefact; it is backed up off the cluster.
 
 **vCPU overcommit: 19 vCPU on a 16-thread host**
-Minecraft (6 vCPU) and the k8s observability stack (4 vCPU) have non-overlapping peak windows: active play drives chunk generation load while Prometheus scrapes and Grafana queries are off-peak. The overcommit is deliberate and monitored. A CPU upgrade is gated on observing actual MC tick stutter under load, not on paper thread counts.
+JBVM03 (6 vCPU) and the k8s observability stack (4 vCPU) have non-overlapping peak windows — the application's CPU-intensive periods don't coincide with Prometheus scrape and Grafana query load. The overcommit is deliberate and monitored via the PVE Exporter dashboard.
 
 **Two-pool NAS design**
 `JBNAS_SSD` (RAIDZ1, 3x 512 GB SSD) holds general data and project backups; redundancy matters here. `JBNAS_MEDIA` (stripe, 4x HDD) holds the Plex media library; media is re-acquirable, so full capacity at the cost of redundancy is the right trade-off. Different durability requirements, different ZFS topologies.

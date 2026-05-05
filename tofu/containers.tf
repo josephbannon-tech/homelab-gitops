@@ -6,10 +6,6 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
 
   unprivileged = true
 
-  cpu {
-    cores = 1
-  }
-
   memory {
     dedicated = 512
     swap      = 512
@@ -17,7 +13,7 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
 
   disk {
     datastore_id = "local-lvm"
-    size         = 8
+    size         = 4
   }
 
   network_interface {
@@ -35,6 +31,10 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
   started       = true
 
   lifecycle {
-    ignore_changes = [operating_system, initialization]
+    ignore_changes = [
+      operating_system, initialization, description, console,
+      start_on_boot, vm_id, tags,
+      timeout_clone, timeout_create, timeout_delete, timeout_start, timeout_update,
+    ]
   }
 }

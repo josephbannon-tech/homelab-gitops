@@ -5,7 +5,9 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
   name      = "JBNAS01"
 
   machine = "q35"
-  bios    = "seabios"
+  bios    = "ovmf"
+
+  scsi_hardware = "virtio-scsi-single"
 
   agent {
     enabled = false
@@ -17,7 +19,7 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
   }
 
   memory {
-    dedicated = 12288
+    dedicated = 12048
   }
 
   # OS disk only; SATA passthrough disks (JBNAS_MEDIA HDDs, JBNAS_SSD SSDs)
@@ -33,7 +35,7 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
     model        = "virtio"
     enabled      = true  # deprecated but still required by provider schema
     disconnected = false
-    firewall     = false
+    firewall     = true
     mac_address  = null
     mtu          = null
     queues       = null
@@ -46,7 +48,11 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
   started = true
 
   lifecycle {
-    ignore_changes = [disk]
+    ignore_changes = [
+      disk, efi_disk, operating_system, serial_device,
+      description, initialization,
+      agent, machine, keyboard_layout,
+    ]
   }
 }
 
@@ -56,26 +62,28 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
   vm_id     = 102
   name      = "JBVM01"
 
-  machine = "q35"
-  bios    = "seabios"
+  machine       = "q35"
+  bios          = "seabios"
+  scsi_hardware = "virtio-scsi-single"
 
   agent {
-    enabled = false
+    enabled = true
   }
 
   cpu {
     cores = 2
-    type  = "host"
+    type  = "x86-64-v2-AES"
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 2048
   }
 
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
-    size         = 32
+    size         = 50
+    iothread     = true
   }
 
   network_device = [{
@@ -83,7 +91,7 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     model        = "virtio"
     enabled      = true  # deprecated but still required by provider schema
     disconnected = false
-    firewall     = false
+    firewall     = true
     mac_address  = null
     mtu          = null
     queues       = null
@@ -92,8 +100,15 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     vlan_id      = null
   }]
 
-  on_boot = true
+  on_boot = false
   started = true
+
+  lifecycle {
+    ignore_changes = [
+      operating_system, serial_device, description, initialization,
+      agent, machine, keyboard_layout,
+    ]
+  }
 }
 
 # JBVM02 — Claude Code / Ubuntu 24.04 (VMID 103)
@@ -102,16 +117,17 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
   vm_id     = 103
   name      = "JBVM02"
 
-  machine = "q35"
-  bios    = "seabios"
+  machine       = "q35"
+  bios          = "seabios"
+  scsi_hardware = "virtio-scsi-single"
 
   agent {
-    enabled = false
+    enabled = true
   }
 
   cpu {
-    cores = 4
-    type  = "host"
+    cores = 2
+    type  = "x86-64-v2-AES"
   }
 
   memory {
@@ -121,7 +137,8 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
-    size         = 64
+    size         = 32
+    iothread     = true
   }
 
   network_device = [{
@@ -129,7 +146,7 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
     model        = "virtio"
     enabled      = true  # deprecated but still required by provider schema
     disconnected = false
-    firewall     = false
+    firewall     = true
     mac_address  = null
     mtu          = null
     queues       = null
@@ -138,36 +155,45 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
     vlan_id      = null
   }]
 
-  on_boot = true
+  on_boot = false
   started = true
+
+  lifecycle {
+    ignore_changes = [
+      operating_system, serial_device, description, initialization,
+      agent, machine, keyboard_layout,
+    ]
+  }
 }
 
-# JBVM03 — Minecraft server / Ubuntu 24.04 (VMID 104)
+# JBVM03 — Production server / Ubuntu 24.04 (VMID 104)
 resource "proxmox_virtual_environment_vm" "jbvm03" {
   node_name = "JBSRV01"
   vm_id     = 104
   name      = "JBVM03"
 
-  machine = "q35"
-  bios    = "seabios"
+  machine       = "q35"
+  bios          = "seabios"
+  scsi_hardware = "virtio-scsi-pci"
 
   agent {
-    enabled = false
+    enabled = true
   }
 
   cpu {
-    cores = 4
+    cores = 6
     type  = "host"
   }
 
   memory {
-    dedicated = 12288
+    dedicated = 14336
   }
 
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
-    size         = 64
+    size         = 40
+    discard      = "on"
   }
 
   network_device = [{
@@ -184,6 +210,13 @@ resource "proxmox_virtual_environment_vm" "jbvm03" {
     vlan_id      = null
   }]
 
-  on_boot = true
+  on_boot = false
   started = true
+
+  lifecycle {
+    ignore_changes = [
+      operating_system, serial_device, description, initialization,
+      agent, machine, keyboard_layout,
+    ]
+  }
 }

@@ -48,7 +48,7 @@ kube-prometheus-stack:
             - targets: ['192.168.0.203:9100']
               labels: {hostname: JBVM02, role: claude-code}
             - targets: ['192.168.0.204:9100']
-              labels: {hostname: JBVM03, role: minecraft}
+              labels: {hostname: JBVM03, role: prod}
             - targets: ['192.168.0.206:9100']
               labels: {hostname: JBVM01, role: jumpbox}
           relabel_configs:

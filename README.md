@@ -55,8 +55,9 @@ graph TB
 | JBDNS01 | Pi-hole DNS + DHCP + Tailscale | Debian 12 LXC | 1 vCPU · 512 MB |
 | JBNAS01 | TrueNAS SCALE NAS | TrueNAS SCALE 25.04 | 4 vCPU · 12 GB · RAIDZ1 SSD + HDD stripe |
 | JBK8S01 | k3s cluster | Ubuntu 24.04 | 4 vCPU · 8 GB · 40 GB |
-| JBVM03 | Minecraft (Enigmatica 10) | Ubuntu 24.04 | 6 vCPU · 14 GB |
+| JBVM01 | Jump box / desktop | Debian 13 | 2 vCPU · 4 GB |
 | JBVM02 | Operations origin | Ubuntu 24.04 | 2 vCPU · 8 GB |
+| JBVM03 | Minecraft (Enigmatica 10) | Ubuntu 24.04 | 6 vCPU · 14 GB |
 
 Total guest allocation: 19 vCPU on a 16-thread host, a deliberate mild overcommit (see [Design Decisions](#design-decisions)).
 

@@ -32,12 +32,12 @@ graph TB
     tailscale["Tailscale\ntailnet"]
 
     github -->|"git poll"| argocd
-    argocd -->|"manages"| k8s
+    argocd --> k8s
     prom -->|"node_exporter"| nas
     prom -->|"node_exporter"| vm02
     prom -->|"node_exporter"| vm03
     prom -->|"node_exporter"| dns
-    pve_exp -->|"Proxmox REST API"| host
+    pve_exp --> host
     grafana -.->|"queries"| prom
     grafana -.->|"queries"| loki
     promtail -->|"push logs"| loki

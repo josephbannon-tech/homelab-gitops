@@ -216,6 +216,31 @@ lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file 0 0
 ```
 This must be set on the Proxmox host; it cannot be applied from inside the container.
 
+**Helm umbrella charts require a `templates/` directory even when they contain no templates**
+Symptom: `helm lint` passes but prints "directory not found" warnings for every umbrella chart; CI output is noisy and misleading.
+Root cause: Helm expects a `templates/` directory to exist in every chart, even if the chart only uses `dependencies` to pull in subcharts and has no templates of its own. Umbrella charts in this repo are pure wrappers around upstream charts via `Chart.yaml` dependencies.
+Fix: add an empty `templates/.gitkeep` file to each umbrella chart directory. Helm finds the directory and suppresses the warning; `.gitkeep` has no effect on chart rendering.
+
+**GitHub Actions Node.js 20 deprecation warnings on every job**
+Symptom: every CI run prints deprecation warnings about actions using Node.js 20, even when the workflow itself targets `ubuntu-latest`.
+Root cause: the action runners (e.g. `actions/checkout`, `actions/cache`) ship bundled Node.js runtimes; GitHub deprecated the Node.js 20 runtime before all actions had migrated to 22/24.
+Fix: set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` as a workflow-level env var. This opts all actions in the workflow into the Node.js 24 runtime without waiting for each action to publish an updated release.
+
+**yamllint fails on sealed secret blobs due to line length**
+Symptom: yamllint reports line-length violations on files in `charts/secrets/`; the violations can't be fixed because the content is base64-encoded ciphertext produced by the Sealed Secrets controller.
+Root cause: `kubeseal` outputs the encrypted payload as a single long base64 string. No line wrapping is applied; any line-length rule will fire on every secret file.
+Fix: add `charts/secrets/` to the yamllint `ignore` list. The files are machine-generated and unreadable regardless; linting them provides no value.
+
+**OpenTofu deb/apt install fails on Ubuntu with a network error**
+Symptom: the OpenTofu installation script using `--install-method deb` exits with an `apt-transport-https` error during package fetch.
+Root cause: the deb install method adds an external apt repository and relies on `apt-transport-https`; on a minimal Ubuntu install this can fail if the package index or transport layer is in a broken state.
+Fix: use `--install-method standalone` instead. The standalone method downloads a single binary directly and places it at `/usr/local/bin/tofu` without touching apt.
+
+**bpg/proxmox: LXC container schema uses `start_on_boot`, not `on_boot`, and `operating_system` requires `lifecycle { ignore_changes }`**
+Symptom: `tofu validate` fails with "attribute on_boot is not expected"; after fixing that, `tofu import` succeeds but `tofu plan` shows a diff on `operating_system` because the field requires a `template_file_id` that doesn't exist for a running container.
+Root cause: the container resource schema names the boot field `start_on_boot`, not `on_boot`. The `operating_system` block requires a `template_file_id` to satisfy the schema, but an already-provisioned container has no associated template in Proxmox state.
+Fix: use `start_on_boot` in the resource definition. Add `lifecycle { ignore_changes = [operating_system, initialization] }` to suppress the diff on fields that are only relevant at creation time and have no meaningful in-place update.
+
 **bpg/proxmox: `node_name` is case-sensitive and forces VM replacement**
 Symptom: `tofu plan` after import shows all VMs as `-/+` (destroy + create replacement).
 Root cause: Proxmox stores the node name in uppercase (`JBSRV01`); if the `.tf` file uses lowercase (`jbsrv01`), the provider treats it as a different value and marks `node_name` as a force-replacement diff.

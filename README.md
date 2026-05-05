@@ -2,7 +2,7 @@
 
 A personal infrastructure project built from bare metal up — documenting my transition from traditional IaaS/systems administration into GitOps, Kubernetes, and infrastructure-as-code. Everything here is running in production on a single Proxmox host at home.
 
-The goal isn't a perfect setup. It's building the kind of platform engineering muscle memory that only comes from doing things for real: breaking them, diagnosing them, and making deliberate decisions about how to fix them. The [Lessons Learned](#lessons-learned) section is the most honest part of this repo.
+The goal isn't a perfect setup. It's building the kind of platform engineering muscle memory that comes from doing things for real The [Lessons Learned](#lessons-learned) found at the bottom of README.
 
 ---
 

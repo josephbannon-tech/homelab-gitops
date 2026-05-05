@@ -84,7 +84,7 @@ Observability came next and went further than most homelab setups bother with: k
 **What this phase taught:** how Prometheus's cgroup-based throttle detection diverges from average CPU utilisation; how ArgoCD's reconciliation loop interacts with Helm's Secret regeneration; why declarative dashboard provisioning matters the moment you restart a pod.
 
 <img width="1690" height="1268" alt="image" src="https://github.com/user-attachments/assets/746fb504-d29e-4442-a19e-3d8a345afd8e" />
-
+<br>
 <img width="1661" height="992" alt="image" src="https://github.com/user-attachments/assets/3c33c345-974a-4884-a2ab-f1b5048dc2f1" />
 
 
@@ -97,7 +97,7 @@ The interesting part of this phase wasn't the software. It was learning how Loki
 **What this phase taught:** Grafana 13 silently discards `additionalDataSources` entries without a `uid` field. No error, no warning, just absent. Documented in Lessons Learned.
 
 <img width="1395" height="932" alt="image" src="https://github.com/user-attachments/assets/0ba14097-c843-411d-91eb-95d782f5c0bd" />
-
+<br>
 <img width="626" height="916" alt="image" src="https://github.com/user-attachments/assets/7ab50b5a-894c-4ede-a629-b96d6b011e22" />
 
 ### Phase 3: IaC and GitOps hardening ✓
@@ -112,6 +112,8 @@ Three gaps closed in this phase:
 
 **What this phase taught:** Sealed Secrets controller won't take ownership of a pre-existing Secret without an explicit annotation. OpenTofu's bpg/proxmox provider hangs indefinitely on import if the QEMU guest agent is enabled in Proxmox but not running in the guest.
 
+<img width="1300" height="1528" alt="image" src="https://github.com/user-attachments/assets/3ca2e7b7-c6c6-47a4-b0dd-e5418ab2e5fe" />
+<br>
 <img width="1666" height="1263" alt="image" src="https://github.com/user-attachments/assets/4fff4c2f-e62d-479c-acff-13d7f57b1015" />
 
 

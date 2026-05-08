@@ -30,19 +30,6 @@ kube-prometheus-stack:
         url: http://tempo.monitoring.svc.cluster.local:3200
         access: proxy
         isDefault: false
-        jsonData:
-          tracesToLogsV2:
-            datasourceUid: loki
-            spanStartTimeShift: "-1h"
-            spanEndTimeShift: "1h"
-            filterByTraceID: true
-            filterBySpanID: true
-          lokiSearch:
-            datasourceUid: loki
-          tracesToMetrics:
-            datasourceUid: prometheus
-            spanStartTimeShift: "-1h"
-            spanEndTimeShift: "1h"
 
   # Prometheus — NodePort 30900 for direct PromQL access
   prometheus:

@@ -51,6 +51,10 @@ kube-prometheus-stack:
               labels: {hostname: JBVM03, role: prod}
             - targets: ['192.168.0.206:9100']
               labels: {hostname: JBVM01, role: jumpbox}
+            - targets: ['192.168.0.205:9100']
+              labels: {hostname: JBDNS01, role: dns}
+            - targets: ['192.168.0.200:9100']
+              labels: {hostname: JBSRV01, role: hypervisor}
           relabel_configs:
             - source_labels: [__address__]
               regex: '([^:]+):.*'

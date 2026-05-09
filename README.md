@@ -91,16 +91,19 @@ Observability came next and went further than most homelab setups bother with: k
 <img width="1661" height="992" alt="image" src="https://github.com/user-attachments/assets/3c33c345-974a-4884-a2ab-f1b5048dc2f1" />
 
 
-### Phase 2: centralised logging ✓
+### Phase 2: centralised logging + distributed tracing ✓
 
 Added Loki in SingleBinary mode. No gateway, no compactor overhead, which is right for a single-node homelab. Retention is 7 days on a local-path PV. Promtail runs as a DaemonSet for in-cluster pod logs and as a standalone agent on all six external hosts (NAS, jump box, operations VM, production server, DNS/DHCP LXC, Proxmox hypervisor), shipping systemd journal and syslog over the network. The hypervisor also ships kern.log, which provides visibility into SATA and disk-level kernel events.
 
-The interesting part of this phase wasn't the software. It was learning how Loki's label cardinality model differs from Prometheus's, and why the `uid` field on Grafana datasources matters more in version 13 than it used to.
+Added Grafana Tempo for distributed trace storage and an OpenTelemetry Collector as the trace ingestion gateway. The Collector receives OTLP over gRPC (:4317) and HTTP (:4318) and forwards to Tempo. The Grafana Tempo datasource is wired with trace-to-logs (Loki) and trace-to-metrics (Prometheus) correlation, so a trace span jumps directly to the matching log lines and metrics window. No services currently emit OTLP traces; the pipeline is ready for when they do.
+
+The interesting part of this phase wasn't the software. It was learning how Loki's label cardinality model differs from Prometheus's, why the `uid` field on Grafana datasources matters more in version 13 than it used to, and how the OTel Collector sits as a decoupled telemetry pipeline -- you can fan out to multiple backends (Tempo + Jaeger + cloud) without touching the instrumented services.
 
 **What this gave me:**
 - Experience querying logs across multiple hosts from a single interface, which showed me concretely what centralised logging changes about how you investigate a problem
 - An understanding of how pod logs and host-level systemd journal entries relate, and why having both in one place matters when tracing a failure
 - Practical exposure to log label design: I hit the cardinality problem myself and learned why it matters before encountering it in a production context
+- A working understanding of the OTel Collector as a vendor-neutral telemetry pipeline (receivers, processors, exporters, pipelines), and how Grafana's three datasources -- Prometheus, Loki, Tempo -- correlate across signals
 
 <img width="1395" height="932" alt="image" src="https://github.com/user-attachments/assets/0ba14097-c843-411d-91eb-95d782f5c0bd" />
 <br>
@@ -148,6 +151,8 @@ Three gaps closed in this phase:
 | Alert routing | Alertmanager -> Discord | Webhook routing to `#homelab-alerts`; Watchdog heartbeat silenced; k3s-incompatible monitors disabled |
 | Log aggregation | Loki (SingleBinary) | Centralised log storage with 7-day retention on a local-path PV; no gateway, direct push from Promtail |
 | Log shipping | Promtail (DaemonSet + external) | In-cluster DaemonSet ships pod logs; external agents on all six estate hosts (JBNAS01, JBVM01, JBVM02, JBVM03, JBDNS01, JBSRV01) ship systemd journal + syslog via NodePort 31100 |
+| Distributed tracing | Grafana Tempo (SingleBinary) | Trace storage with 7-day retention on a local-path PV; receives from OTel Collector; wired to Grafana with trace-to-logs and trace-to-metrics correlation |
+| Trace pipeline | OpenTelemetry Collector | Vendor-neutral OTLP gateway; receives traces over gRPC (:4317) and HTTP (:4318), forwards to Tempo; decouples instrumented services from the backend |
 | CI | GitHub Actions | Helm lint + YAML validation on every PR; Node.js 24 runner |
 
 ---

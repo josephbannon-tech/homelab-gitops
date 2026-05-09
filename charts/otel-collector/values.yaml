@@ -9,6 +9,29 @@ opentelemetry-collector:
   command:
     name: otelcol-contrib
 
+  ports:
+    jaeger-compact:
+      enabled: false
+    jaeger-grpc:
+      enabled: false
+    jaeger-thrift:
+      enabled: false
+    zipkin:
+      enabled: false
+    metrics:
+      enabled: true
+      containerPort: 8888
+      servicePort: 8888
+      protocol: TCP
+
+  serviceMonitor:
+    enabled: true
+    metricsEndpoints:
+      - port: metrics
+        interval: 30s
+    additionalLabels:
+      release: kube-prometheus-stack
+
   config:
     receivers:
       otlp:

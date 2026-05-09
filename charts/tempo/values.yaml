@@ -1,32 +1,33 @@
 tempo:
-  retention: 168h  # 7 days
+  tempo:
+    retention: 168h  # 7 days
 
-  reportingEnabled: false
+    reportingEnabled: false
 
-  storage:
-    trace:
-      backend: local
-      local:
-        path: /var/tempo/traces
-      wal:
-        path: /var/tempo/wal
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
 
-  # Only enable OTLP; Jaeger and OpenCensus receivers not needed in this estate
-  receivers:
-    otlp:
-      protocols:
-        grpc:
-          endpoint: "0.0.0.0:4317"
-        http:
-          endpoint: "0.0.0.0:4318"
+    # Only enable OTLP; Jaeger and OpenCensus receivers not needed in this estate
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
 
-serviceMonitor:
-  enabled: true
-  interval: "30s"
-  additionalLabels:
-    release: kube-prometheus-stack
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 5Gi
 
-persistence:
-  enabled: true
-  storageClassName: local-path
-  size: 5Gi
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    additionalLabels:
+      release: kube-prometheus-stack

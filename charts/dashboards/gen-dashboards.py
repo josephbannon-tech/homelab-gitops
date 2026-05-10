@@ -456,8 +456,10 @@ capacity_panels = [
          thresholds=GREEN_ONLY),
 
     row(10, "Estate Headroom — RAM & CPU per Host", 25),
+    # avg by (hostname) drops the noisy {namespace, endpoint, ...} labels so
+    # the legend reads as just the hostname.
     timeseries(11, "Free memory (%)",
-               [t('100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes',
+               [t('100 * avg by (hostname) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)',
                   "{{hostname}}")],
                "percent", 0, 26, 12, 8),
     timeseries(12, "CPU idle (%)",

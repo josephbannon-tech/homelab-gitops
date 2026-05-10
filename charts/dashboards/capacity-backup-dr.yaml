@@ -502,7 +502,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+              "expr": "100 * avg by (hostname) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
               "legendFormat": "{{hostname}}",
               "refId": "A"
             }

@@ -18,18 +18,15 @@ kube-prometheus-stack:
       fsGroup: 472
     # Retrieve admin password: kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d
     # Image renderer sidecar (separate Deployment + Service). Powers the
-    # /render/* HTTP endpoints used to PNG-snapshot dashboards. Lets us
-    # iterate dashboard layout headlessly. Uses ~256Mi RAM per render.
+    # /render/* HTTP endpoints used to PNG-snapshot dashboards. The chart
+    # auto-configures grafana.ini.rendering.{server_url, callback_url} and
+    # the shared renderer token — do not override here.
     imageRenderer:
       enabled: true
       replicas: 1
       resources:
         requests: {cpu: 50m, memory: 128Mi}
         limits:   {cpu: 500m, memory: 512Mi}
-    grafana.ini:
-      rendering:
-        server_url: http://kube-prometheus-stack-grafana-image-renderer.monitoring.svc:8081/render
-        callback_url: http://kube-prometheus-stack-grafana.monitoring.svc:80/
     additionalDataSources:
       - name: Loki
         type: loki

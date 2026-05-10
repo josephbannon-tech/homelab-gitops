@@ -239,6 +239,288 @@ zfs_panels = [
                "bytes", 12, 24, 12, 8),
 ]
 
+# ── Helpers added for SLO / Logs dashboards ──────────────────────────────────
+
+LOKI_DS = {"type": "loki", "uid": "loki"}
+
+def t_loki(expr, legend, ref="A"):
+    return {"datasource": LOKI_DS, "expr": expr, "legendFormat": legend, "refId": ref,
+            "queryType": "range"}
+
+def text_panel(id, title, content, x, y, w, h, mode="markdown"):
+    return {
+        "id": id, "title": title, "type": "text",
+        "gridPos": {"x": x, "y": y, "w": w, "h": h},
+        "options": {"mode": mode, "content": content}
+    }
+
+def stat_loki(id, title, expr, unit, x, y, w, h, thresholds=None):
+    p = stat(id, title, expr, unit, x, y, w, h, thresholds=thresholds)
+    p["targets"] = [{"datasource": LOKI_DS, "expr": expr, "refId": "A",
+                     "queryType": "instant"}]
+    return p
+
+def stat_with_target_color(id, title, expr, unit, x, y, w, h, target_pct):
+    """Stat panel with thresholds: red below target_pct, yellow within 0.1% above, green above that."""
+    return stat(id, title, expr, unit, x, y, w, h,
+                thresholds={
+                    "mode": "absolute",
+                    "steps": [
+                        {"color": "red", "value": None},
+                        {"color": "yellow", "value": target_pct - 0.1},
+                        {"color": "green", "value": target_pct},
+                    ]
+                })
+
+# ── Dashboard 3: Family Services SLO ─────────────────────────────────────────
+
+slo_panels = [
+    row(1, "30-Day SLO Compliance (target lines: red=below, green=above)", 0),
+    stat_with_target_color(2, "Plex (target 99.5%)",
+        "slo:plex:availability:ratio_30d * 100", "percent", 0, 1, 6, 4, 99.5),
+    stat_with_target_color(3, "Minecraft (target 99.0%)",
+        "slo:minecraft:availability:ratio_30d * 100", "percent", 6, 1, 6, 4, 99.0),
+    stat_with_target_color(4, "Pi-hole DNS (target 99.9%)",
+        "slo:pihole:availability:ratio_30d * 100", "percent", 12, 1, 6, 4, 99.9),
+    stat_with_target_color(5, "NAS reachable (target 99.9%)",
+        "slo:nas:availability:ratio_30d * 100", "percent", 18, 1, 6, 4, 99.9),
+
+    row(6, "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)", 5),
+    timeseries(7, "Plex burn rate",
+               [t("slo:plex:burn_rate:5m", "5m"),
+                t("slo:plex:burn_rate:1h", "1h", "B"),
+                t("slo:plex:burn_rate:6h", "6h", "C")],
+               "short", 0, 6, 8, 7, fill=0),
+    timeseries(8, "Minecraft burn rate",
+               [t("slo:minecraft:burn_rate:5m", "5m"),
+                t("slo:minecraft:burn_rate:1h", "1h", "B"),
+                t("slo:minecraft:burn_rate:6h", "6h", "C")],
+               "short", 8, 6, 8, 7, fill=0),
+    timeseries(9, "Pi-hole burn rate",
+               [t("slo:pihole:burn_rate:5m", "5m"),
+                t("slo:pihole:burn_rate:1h", "1h", "B"),
+                t("slo:pihole:burn_rate:6h", "6h", "C")],
+               "short", 16, 6, 8, 7, fill=0),
+
+    row(10, "Plex", 13),
+    stat(11, "Server up", 'up{job="plex"}', "short", 0, 14, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(12, "Library size",
+         'sum(library_storage_total{server_type="plex"})', "bytes", 4, 14, 4, 4,
+         thresholds=GREEN_ONLY),
+    stat(13, "Library duration",
+         'sum(library_duration_total{server_type="plex"}) / 1000 / 86400',
+         "d", 8, 14, 4, 4, thresholds=GREEN_ONLY),
+    timeseries(14, "Estimated bandwidth out (5m rate)",
+               [t('rate(estimated_transmit_bytes_total{server_type="plex"}[5m])',
+                  "{{server}}")],
+               "Bps", 12, 14, 12, 4),
+
+    row(15, "Minecraft", 18),
+    stat(16, "Server healthy", "minecraft_status_healthy", "short", 0, 19, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(17, "Players online",
+         "minecraft_status_players_online_count", "short", 4, 19, 4, 4,
+         thresholds=GREEN_ONLY),
+    stat(18, "Max players",
+         "minecraft_status_players_max_count", "short", 8, 19, 4, 4,
+         thresholds=NO_THRESH),
+    timeseries(19, "Server response time",
+               [t("minecraft_status_response_time_seconds", "ping")],
+               "s", 12, 19, 12, 4),
+
+    row(20, "Pi-hole DNS", 23),
+    stat(21, "DNS up (scrape)", 'up{job="pihole"}', "short", 0, 24, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(22, "Queries today",
+         "sum(pihole_dns_queries_today)", "short", 4, 24, 4, 4,
+         thresholds=GREEN_ONLY),
+    stat(23, "Blocked %",
+         "avg(pihole_ads_percentage_today)", "percent", 8, 24, 4, 4,
+         thresholds=NO_THRESH),
+    timeseries(24, "Queries/sec (5m rate)",
+               [t("rate(pihole_dns_queries_all_types[5m])", "qps")],
+               "ops", 12, 24, 12, 4),
+
+    row(25, "NAS", 28),
+    stat(26, "NAS reachable",
+         'up{job="node-exporter-external", hostname="JBNAS01"}',
+         "short", 0, 29, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(27, "ZFS pools online",
+         'count(node_zfs_zpool_state{hostname="JBNAS01", state="online"} == 1)',
+         "short", 4, 29, 4, 4, thresholds=GREEN_ONLY),
+    stat(28, "ARC hit ratio",
+         ARC_HIT_RATIO, "percent", 8, 29, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "yellow", "value": 70},
+                               {"color": "green", "value": 90}]}),
+    stat(29, "SMART devices reporting",
+         'count(smartctl_device{instance="192.168.0.200"})',
+         "short", 12, 29, 4, 4, thresholds=GREEN_ONLY),
+    stat(30, "Failing SMART (proxmox host)",
+         'count(smartctl_device_smartctl_exit_status{instance="192.168.0.200"} > 0) or vector(0)',
+         "short", 16, 29, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "green", "value": None},
+                               {"color": "red", "value": 1}]}),
+    stat(31, "Tailscale nodes up",
+         'count(up{job="tailscale-nodes"} == 1)', "short", 20, 29, 4, 4,
+         thresholds=GREEN_ONLY),
+]
+
+# ── Dashboard 4: Capacity / Growth / Backup-DR ───────────────────────────────
+
+# Linear-prediction days-to-full per filesystem (positive = days remaining; negative = filling).
+# predict_linear is in seconds so divide by 86400.
+def days_to_full(host_label, mountpoint):
+    return (
+        f'(predict_linear(node_filesystem_avail_bytes{{hostname="{host_label}",'
+        f'mountpoint="{mountpoint}"}}[7d], 86400 * 30) > 0) / 86400 * 0 + '
+        f'(node_filesystem_avail_bytes{{hostname="{host_label}",mountpoint="{mountpoint}"}} / '
+        f'(-deriv(node_filesystem_avail_bytes{{hostname="{host_label}",mountpoint="{mountpoint}"}}[7d]) > 0)'
+        f') / 86400'
+    )
+
+CAP_BACKUP_GAPS = """
+### Open backup / DR gaps (from `project_open_defects`)
+
+- **JBSRV01** has no scheduled config backup. Loss of `/etc/pve` is reconstructable but slow.
+- **JBDNS01** has no backup at all. Pi-hole rebuild is doc-driven; gravity list, custom DNS, DHCP leases all rebuild from code.
+- **JBNAS_MEDIA** is a stripe pool (no parity, no snapshots). Single HDD failure loses 5 TB of Plex library.
+- **`data` pool** rsync targets back up project data, but `_inbox`, `mc-backups`, and `system-state` are single-copy.
+- **JBVM01 credential store** is single-copy on local disk.
+
+These are tracked in `project_open_defects.md` (memory). When a textfile-collector
+backup-status pipeline lands, the panels above this one will populate with
+last-success timestamps and replace this static list.
+"""
+
+capacity_panels = [
+    row(1, "Filesystem Free Space (%)", 0),
+    bargauge(2, "Free %",
+             [t('100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"} / '
+                'node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"}',
+                '{{hostname}} {{mountpoint}}')],
+             "percent", 0, 1, 24, 8),
+
+    row(3, "ZFS Pool Used vs Capacity (NAS)", 9),
+    bargauge(4, "Pool Used %",
+             [t('100 * (node_zfs_zpool_size{hostname="JBNAS01"} - node_zfs_zpool_free{hostname="JBNAS01"}) / '
+                'node_zfs_zpool_size{hostname="JBNAS01"}', '{{zpool}}')],
+             "percent", 0, 10, 12, 6),
+    stat(5, "Pool free total",
+         'sum(node_zfs_zpool_free{hostname="JBNAS01"})', "bytes", 12, 10, 6, 6,
+         thresholds=GREEN_ONLY),
+    stat(6, "Pool size total",
+         'sum(node_zfs_zpool_size{hostname="JBNAS01"})', "bytes", 18, 10, 6, 6,
+         thresholds=NO_THRESH),
+
+    row(7, "Pool Used Trend (30d)", 16),
+    timeseries(8, "ZFS pool used bytes",
+               [t('node_zfs_zpool_size{hostname="JBNAS01"} - node_zfs_zpool_free{hostname="JBNAS01"}',
+                  "{{zpool}}")],
+               "bytes", 0, 17, 24, 9),
+
+    row(9, "Estate Headroom — RAM & CPU per Host", 26),
+    timeseries(10, "Free memory (%)",
+               [t('100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes',
+                  "{{hostname}}")],
+               "percent", 0, 27, 12, 8),
+    timeseries(11, "CPU idle (%)",
+               [t('100 * avg by (hostname) (rate(node_cpu_seconds_total{mode="idle"}[5m]))',
+                  "{{hostname}}")],
+               "percent", 12, 27, 12, 8),
+
+    row(12, "SMART Device Power-On Hours (JBSRV01)", 35),
+    timeseries(13, "Power-on hours",
+               [t('smartctl_device_power_on_hours{instance="192.168.0.200"}',
+                  "{{device}} {{model_name}}")],
+               "h", 0, 36, 24, 8),
+
+    row(14, "Backup / DR Status", 44),
+    text_panel(15, "Open gaps", CAP_BACKUP_GAPS, 0, 45, 24, 8),
+]
+
+# ── Dashboard 5: Logs + Network / DNS Overview ──────────────────────────────
+
+LOG_RATE_BY_HOST = 'sum by (hostname) (rate({job="systemd-journal"}[5m]))'
+ERR_RATE_BY_HOST = 'sum by (hostname) (rate({job="systemd-journal"} |~ "(?i)error"[5m]))'
+WARN_RATE_BY_HOST = 'sum by (hostname) (rate({job="systemd-journal"} |~ "(?i)warn"[5m]))'
+SSHD_FAILS = 'sum by (hostname) (count_over_time({job="systemd-journal", unit="ssh.service"} |~ "Failed password"[24h]))'
+TOP_NOISY_UNITS = 'topk(10, sum by (hostname, unit) (rate({job="systemd-journal"}[5m])))'
+
+logs_panels = [
+    row(1, "Loki — Log Activity (last 5m)", 0),
+    timeseries(2, "Log rate per host (lines/sec)",
+               [t_loki(LOG_RATE_BY_HOST, "{{hostname}}")],
+               "ops", 0, 1, 12, 8),
+    timeseries(3, "Error rate per host (lines/sec)",
+               [t_loki(ERR_RATE_BY_HOST, "{{hostname}}")],
+               "ops", 12, 1, 12, 8),
+    timeseries(4, "Warning rate per host (lines/sec)",
+               [t_loki(WARN_RATE_BY_HOST, "{{hostname}}")],
+               "ops", 0, 9, 12, 8),
+    timeseries(5, "Top 10 noisy systemd units (lines/sec)",
+               [t_loki(TOP_NOISY_UNITS, "{{hostname}} / {{unit}}")],
+               "ops", 12, 9, 12, 8),
+
+    row(6, "SSH auth failures (last 24h, journal)", 17),
+    timeseries(7, "Failed SSH password attempts",
+               [t_loki(SSHD_FAILS, "{{hostname}}")],
+               "short", 0, 18, 24, 8),
+
+    row(8, "Pi-hole DNS — Live", 26),
+    stat(9, "Queries (today)",
+         "sum(pihole_dns_queries_today)", "short", 0, 27, 6, 4, thresholds=GREEN_ONLY),
+    stat(10, "Blocked (today)",
+         "sum(pihole_ads_blocked_today)", "short", 6, 27, 6, 4, thresholds=GREEN_ONLY),
+    stat(11, "Blocked %",
+         "avg(pihole_ads_percentage_today)", "percent", 12, 27, 6, 4, thresholds=NO_THRESH),
+    stat(12, "Domains in blocklist",
+         "max(pihole_domains_being_blocked)", "short", 18, 27, 6, 4, thresholds=NO_THRESH),
+    timeseries(13, "DNS queries/sec (5m rate)",
+               [t("rate(pihole_dns_queries_all_types[5m])", "queries/s")],
+               "ops", 0, 31, 12, 7),
+    timeseries(14, "Cache vs forwarded (1h rate)",
+               [t("rate(pihole_queries_cached[1h])", "cached"),
+                t("rate(pihole_queries_forwarded[1h])", "forwarded", "B")],
+               "ops", 12, 31, 12, 7),
+
+    row(15, "Network — Per-Host Throughput", 38),
+    timeseries(16, "Receive (Bps)",
+               [t('sum by (hostname) (rate(node_network_receive_bytes_total{device!~"lo|veth.*|tailscale.*"}[5m]))',
+                  "{{hostname}}")],
+               "Bps", 0, 39, 12, 8),
+    timeseries(17, "Transmit (Bps)",
+               [t('sum by (hostname) (rate(node_network_transmit_bytes_total{device!~"lo|veth.*|tailscale.*"}[5m]))',
+                  "{{hostname}}")],
+               "Bps", 12, 39, 12, 8),
+
+    row(18, "Tailscale nodes (debug metrics)", 47),
+    stat(19, "Nodes up", 'count(up{job="tailscale-nodes"} == 1)',
+         "short", 0, 48, 6, 4, thresholds=GREEN_ONLY),
+    stat(20, "Total dropped packets (since reboot)",
+         'sum(netstack_dropped_packets)', "short", 6, 48, 6, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "green", "value": None},
+                               {"color": "yellow", "value": 1000},
+                               {"color": "red", "value": 100000}]}),
+    timeseries(21, "Packet forward errors / sec",
+               [t('sum by (hostname) (rate(netstack_ip_forward_errors[5m]))',
+                  "{{hostname}}")],
+               "ops", 12, 48, 12, 4),
+]
+
 # ── Emit ConfigMap YAMLs ──────────────────────────────────────────────────────
 
 def configmap(name, filename, db):
@@ -272,4 +554,25 @@ with open("charts/dashboards/nas-zfs.yaml", "w") as f:
         dashboard("NAS — ZFS Pools & ARC", "nas-zfs", zfs_panels)
     ))
 
-print("Generated proxmox-overview.yaml and nas-zfs.yaml")
+with open("charts/dashboards/family-services-slo.yaml", "w") as f:
+    f.write(configmap(
+        "grafana-dashboard-family-services-slo",
+        "family-services-slo.json",
+        dashboard("Family Services — SLO Board", "family-services-slo", slo_panels)
+    ))
+
+with open("charts/dashboards/capacity-backup-dr.yaml", "w") as f:
+    f.write(configmap(
+        "grafana-dashboard-capacity-backup-dr",
+        "capacity-backup-dr.json",
+        dashboard("Capacity, Growth & Backup/DR", "capacity-backup-dr", capacity_panels)
+    ))
+
+with open("charts/dashboards/logs-network-dns.yaml", "w") as f:
+    f.write(configmap(
+        "grafana-dashboard-logs-network-dns",
+        "logs-network-dns.json",
+        dashboard("Logs + Network/DNS Overview", "logs-network-dns", logs_panels)
+    ))
+
+print("Generated 5 dashboards.")

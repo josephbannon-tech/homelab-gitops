@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pihole-exporter
+  namespace: monitoring
+  labels:
+    app: pihole-exporter
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: pihole-exporter
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      relabelings:
+        # Force job label to "pihole" so existing recording rules / SLO
+        # dashboards (which query `up{job="pihole"}`) keep working after the
+        # static scrape config in kube-prometheus-stack/values.yaml is removed.
+        - targetLabel: job
+          replacement: pihole
+        - targetLabel: hostname
+          replacement: JBDNS01
+        - targetLabel: role
+          replacement: dns

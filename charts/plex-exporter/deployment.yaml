@@ -15,11 +15,20 @@ spec:
       labels:
         app: plex-exporter
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: plex-exporter
-          image: ghcr.io/jsclayton/prometheus-plex-exporter:latest
+          # Digest pinned 2026-05-10; corresponds to the :latest tag at that time.
+          # Bump deliberately when upstream releases warrant.
+          image: ghcr.io/jsclayton/prometheus-plex-exporter@sha256:18ef1b2197efbcb75bd7276380955760995f10a9fbe55106809a6fcff91c2940
           ports:
-            - containerPort: 9000
+            - name: metrics
+              containerPort: 9000
           env:
             - name: PLEX_SERVER
               value: "http://192.168.0.202:32400"
@@ -35,3 +44,30 @@ spec:
             limits:
               cpu: 200m
               memory: 96Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex-exporter
+  namespace: monitoring
+  labels:
+    app: plex-exporter
+spec:
+  selector:
+    app: plex-exporter
+  ports:
+    - name: metrics
+      port: 9000
+      targetPort: 9000

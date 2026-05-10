@@ -53,13 +53,17 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+          # Liveness uses TCP, not HTTP /metrics. The exporter's /metrics
+          # endpoint synchronously calls the upstream Pi-hole admin API; a
+          # slow upstream response trips the probe and kubelet kills a
+          # process that is otherwise alive. That behaviour paged
+          # `PiholeErrorBudgetBurn*` on 2026-05-10.
           livenessProbe:
-            httpGet:
-              path: /metrics
+            tcpSocket:
               port: metrics
             initialDelaySeconds: 30
             periodSeconds: 60
-            timeoutSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
             httpGet:
@@ -67,7 +71,7 @@ spec:
               port: metrics
             initialDelaySeconds: 10
             periodSeconds: 30
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 3
           volumeMounts:
             - name: tmp

@@ -289,21 +289,29 @@ kube-prometheus-stack:
                 description: "Minecraft availability degraded over 6h. Likely a flapping server or restart loop. Investigate JBVM03 logs and ServerStarter behaviour."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/minecraft-burn-rate.md"
 
+            # SLI is `up{job="pihole"}`, i.e. pihole-exporter scrape success.
+            # That measures *exporter* availability, NOT user-facing DNS
+            # reachability. The exporter and pihole-FTL :53 are independent
+            # paths; the household can resolve DNS perfectly while these
+            # alerts fire. Wording reflects that. TODO (follow-up): add
+            # blackbox-exporter with the `dns` module probing
+            # 192.168.0.205:53/udp for a real user-DNS SLI, then promote
+            # severity to critical once that signal exists.
             - alert: PiholeErrorBudgetBurnFast
               expr: slo:pihole:burn_rate:1h > 14.4 and slo:pihole:burn_rate:5m > 14.4
               for: 2m
-              labels: {severity: critical, service: pihole}
+              labels: {severity: warning, service: pihole}
               annotations:
-                summary: "Pi-hole DNS burning SLO budget fast — household DNS may be down"
-                description: "Pi-hole on JBDNS01 (192.168.0.205) is unreachable. The household has no DNS resolution; every internet-using device on the LAN is affected. Check JBDNS01 LXC status on JBSRV01 and pihole-FTL service inside the LXC."
+                summary: "pihole-exporter scrape failing fast (SLI up{job=pihole}, not user-facing DNS)"
+                description: "pihole-exporter on JBDNS01 has burned >14.4× the 99.9% SLO budget over 1h+5m. This is the exporter→Pi-hole admin API path, not the LAN DNS path; verify with `dig @192.168.0.205 +short google.com` before assuming user impact. Check the pihole-exporter Pod (kubectl -n monitoring describe pod -l app=pihole-exporter) and pihole-FTL admin API (port 80) on the LXC."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
             - alert: PiholeErrorBudgetBurnSlow
               expr: slo:pihole:burn_rate:6h > 6 and slo:pihole:burn_rate:30m > 6
               for: 15m
               labels: {severity: warning, service: pihole}
               annotations:
-                summary: "Pi-hole DNS burning SLO budget slowly"
-                description: "Pi-hole availability degraded over 6h. Often a sign of slow upstream resolvers or LXC contention. Check pihole-FTL logs and unbound (if upstream)."
+                summary: "pihole-exporter scrape failing slow (SLI up{job=pihole}, not user-facing DNS)"
+                description: "pihole-exporter scrape success degraded over 6h. Causes: exporter Pod restarts (check probe config), upstream Pi-hole admin API slow, or cluster scrape gaps from a Prometheus / node disruption. Verify user DNS with `dig @192.168.0.205 +short google.com` first; only escalate if that fails."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
 
             - alert: NasErrorBudgetBurnFast

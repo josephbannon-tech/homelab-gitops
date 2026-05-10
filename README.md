@@ -198,6 +198,19 @@ Installing Tailscale on every VM would require per-host ACL entries and key rota
 **Deliberately single-environment GitOps**
 This repo has no `environments/` overlay structure; this homelab has one cluster. Production would layer Kustomize overlays (or per-environment Helm value files) over a base config: `base/` -> `overlays/dev/`, `overlays/prod/`. That pattern is absent here by choice, not by accident.
 
+**Migrate static scrape configs to ServiceMonitor with a `job=` relabel**
+The kube-prometheus-stack convention is that in-cluster targets use ServiceMonitor and `additionalScrapeConfigs` is reserved for targets outside the cluster. Migrating an existing in-cluster exporter from a static `additionalScrapeConfigs` job entry to a ServiceMonitor changes the resulting `job` label: a ServiceMonitor named `pihole-exporter` in the `monitoring` namespace produces `job="monitoring/pihole-exporter"` by default, not the original `job="pihole"`. Recording rules and dashboards that reference `up{job="pihole"}` silently stop matching.
+
+A one-line relabel preserves the original label:
+```yaml
+endpoints:
+  - port: metrics
+    relabelings:
+      - targetLabel: job
+        replacement: pihole
+```
+The migration becomes an atomic single commit: add the ServiceMonitor, remove the static job, no recording-rule rewrite. The alternative (rewrite every recording rule and dashboard to the new ns/name shape) is possible but has a much larger blast radius for what is structurally a label-shape change. Dropping the relabel later is a cosmetic follow-up that doesn't have to block the migration.
+
 ---
 
 ## Lessons Learned
@@ -285,6 +298,12 @@ Fix: install `qemu-guest-agent` in the VM before importing (`sudo apt install -y
 Symptom: `tofu validate` fails with "attributes X, Y, Z are required" on the `network_device` list attribute; removing `enabled` (marked deprecated) causes "attribute enabled is required".
 Root cause: the provider schema marks `enabled` as both required and deprecated simultaneously. The object type requires every field to be present even if deprecated.
 Fix: include all fields (`bridge`, `model`, `enabled`, `disconnected`, `firewall`, `mac_address`, `mtu`, `queues`, `rate_limit`, `trunks`, `vlan_id`), setting unused ones to `null`. Keep `enabled = true` to satisfy the schema requirement.
+
+**Alerts on metrics that don't exist evaluate to false forever**
+Symptom: planning to add `LokiDown` and `PromtailDown` alerts with `up{job=~"loki|promtail"} == 0`. The PromQL is well-formed but returns no series; the alert would silently never fire even when Loki was actually down. A pre-flight `curl /api/v1/label/job/values | jq` returned no `loki` or `promtail` label values at all.
+Root cause: the upstream `grafana/loki` chart ships `monitoring.serviceMonitor.enabled: false` and `grafana/promtail` ships `serviceMonitor.enabled: false` by default. Both expose `/metrics` on their pods, but with no ServiceMonitor and no static `additionalScrapeConfigs` entry, prometheus-operator never generates a scrape target. The alert evaluates against an empty series and is always false, which is indistinguishable from a healthy state.
+Fix: deferred the alert. The honest sequence is enable `serviceMonitor.enabled: true` in the chart values with the `release: kube-prometheus-stack` label, verify the targets appear in Prometheus, then add the alert. Adding the alert first ships a placebo and degrades trust in the alerting pipeline if it's ever caught.
+General lesson: before adding any `up{job="..."}` alert, query `/api/v1/label/job/values` and confirm the job label actually exists. It is a 5-second check that catches the silent-fail class — alerts on metrics that don't exist look identical to alerts on healthy systems, and the failure mode is invisible until a real incident reveals it.
 
 ---
 

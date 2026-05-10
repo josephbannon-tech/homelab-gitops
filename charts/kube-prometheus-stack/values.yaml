@@ -96,6 +96,55 @@ kube-prometheus-stack:
               target_label: instance
             - target_label: __address__
               replacement: pve-exporter.monitoring.svc.cluster.local:9221
+        # smartctl_exporter runs only on JBSRV01 (Proxmox host); the NAS VM only
+        # sees QEMU virtio devices, so SMART data is collected once at the host
+        # where all 8 physical drives are visible.
+        - job_name: smartctl
+          static_configs:
+            - targets: ['192.168.0.200:9633']
+              labels: {hostname: JBSRV01, role: hypervisor}
+          relabel_configs:
+            - source_labels: [__address__]
+              regex: '([^:]+):.*'
+              target_label: instance
+              replacement: '$1'
+        # mc-monitor pings the MC server-list-ping endpoint and exposes
+        # minecraft_status_* metrics on :9150. RCON is not used.
+        - job_name: minecraft
+          static_configs:
+            - targets: ['192.168.0.204:9150']
+              labels: {hostname: JBVM03, role: prod}
+          relabel_configs:
+            - source_labels: [__address__]
+              regex: '([^:]+):.*'
+              target_label: instance
+              replacement: '$1'
+        # ekofr/pihole-exporter (in-cluster) polls JBDNS01 admin API.
+        # Auth via PIHOLE_PASSWORD from sealed Secret pihole-exporter-config.
+        - job_name: pihole
+          static_configs:
+            - targets: ['pihole-exporter.monitoring.svc.cluster.local:9617']
+              labels: {hostname: JBDNS01, role: dns}
+        # jsclayton/prometheus-plex-exporter (in-cluster) polls Plex Server on
+        # NvidiaShield (192.168.0.202:32400) using X-Plex-Token from sealed Secret.
+        - job_name: plex
+          static_configs:
+            - targets: ['plex-exporter.monitoring.svc.cluster.local:9000']
+              labels: {hostname: NvidiaShield, role: media-server}
+        # tailscaled --debug exposes Prometheus-format metrics at /debug/metrics.
+        # Only enabled on hosts that actually run Tailscale (JBVM03, JBDNS01).
+        - job_name: tailscale-nodes
+          metrics_path: /debug/metrics
+          static_configs:
+            - targets: ['192.168.0.204:5252']
+              labels: {hostname: JBVM03, role: prod}
+            - targets: ['192.168.0.205:5252']
+              labels: {hostname: JBDNS01, role: dns}
+          relabel_configs:
+            - source_labels: [__address__]
+              regex: '([^:]+):.*'
+              target_label: instance
+              replacement: '$1'
 
   # Alertmanager — config loaded from k8s Secret (webhook URL kept out of Git)
   # Secret 'alertmanager-main' in namespace 'monitoring' holds alertmanager.yaml
@@ -124,3 +173,144 @@ kube-prometheus-stack:
     enabled: false
   kubeProxy:
     enabled: false
+
+  # Family-services SLO rules (recording + multi-window multi-burn-rate alerts).
+  # Targets:
+  #   plex      99.5% / 30d   error budget = 0.5%
+  #   minecraft 99.0% / 30d   error budget = 1.0%
+  #   pihole    99.9% / 30d   error budget = 0.1%
+  #   nas       99.9% / 30d   error budget = 0.1%
+  #   tailscale 99.0% / 30d   error budget = 1.0% (per node)
+  # Alerts: fast burn (14.4x over 1h+5m → critical), slow burn (6x over 6h+30m → warning).
+  # Pattern: Google SRE Workbook §5.4 multi-window multi-burn-rate.
+  additionalPrometheusRulesMap:
+    family-services-slo:
+      groups:
+        - name: family-services.slo.recording
+          interval: 1m
+          rules:
+            # 30-day availability (used by dashboards)
+            - record: slo:plex:availability:ratio_30d
+              expr: avg_over_time(up{job="plex"}[30d])
+            - record: slo:minecraft:availability:ratio_30d
+              expr: avg_over_time(minecraft_status_healthy[30d])
+            - record: slo:pihole:availability:ratio_30d
+              expr: avg_over_time(up{job="pihole"}[30d])
+            - record: slo:nas:availability:ratio_30d
+              expr: avg_over_time(up{job="node-exporter-external", hostname="JBNAS01"}[30d])
+            - record: slo:tailscale:availability:ratio_30d
+              expr: avg_over_time(up{job="tailscale-nodes"}[30d])
+
+            # Burn rate — short windows (for fast-burn alert)
+            - record: slo:plex:burn_rate:5m
+              expr: (1 - avg_over_time(up{job="plex"}[5m])) / 0.005
+            - record: slo:plex:burn_rate:1h
+              expr: (1 - avg_over_time(up{job="plex"}[1h])) / 0.005
+            - record: slo:minecraft:burn_rate:5m
+              expr: (1 - avg_over_time(minecraft_status_healthy[5m])) / 0.01
+            - record: slo:minecraft:burn_rate:1h
+              expr: (1 - avg_over_time(minecraft_status_healthy[1h])) / 0.01
+            - record: slo:pihole:burn_rate:5m
+              expr: (1 - avg_over_time(up{job="pihole"}[5m])) / 0.001
+            - record: slo:pihole:burn_rate:1h
+              expr: (1 - avg_over_time(up{job="pihole"}[1h])) / 0.001
+            - record: slo:nas:burn_rate:5m
+              expr: (1 - avg_over_time(up{job="node-exporter-external", hostname="JBNAS01"}[5m])) / 0.001
+            - record: slo:nas:burn_rate:1h
+              expr: (1 - avg_over_time(up{job="node-exporter-external", hostname="JBNAS01"}[1h])) / 0.001
+            - record: slo:tailscale:burn_rate:5m
+              expr: (1 - avg_over_time(up{job="tailscale-nodes"}[5m])) / 0.01
+            - record: slo:tailscale:burn_rate:1h
+              expr: (1 - avg_over_time(up{job="tailscale-nodes"}[1h])) / 0.01
+
+            # Burn rate — long windows (for slow-burn alert)
+            - record: slo:plex:burn_rate:30m
+              expr: (1 - avg_over_time(up{job="plex"}[30m])) / 0.005
+            - record: slo:plex:burn_rate:6h
+              expr: (1 - avg_over_time(up{job="plex"}[6h])) / 0.005
+            - record: slo:minecraft:burn_rate:30m
+              expr: (1 - avg_over_time(minecraft_status_healthy[30m])) / 0.01
+            - record: slo:minecraft:burn_rate:6h
+              expr: (1 - avg_over_time(minecraft_status_healthy[6h])) / 0.01
+            - record: slo:pihole:burn_rate:30m
+              expr: (1 - avg_over_time(up{job="pihole"}[30m])) / 0.001
+            - record: slo:pihole:burn_rate:6h
+              expr: (1 - avg_over_time(up{job="pihole"}[6h])) / 0.001
+            - record: slo:nas:burn_rate:30m
+              expr: (1 - avg_over_time(up{job="node-exporter-external", hostname="JBNAS01"}[30m])) / 0.001
+            - record: slo:nas:burn_rate:6h
+              expr: (1 - avg_over_time(up{job="node-exporter-external", hostname="JBNAS01"}[6h])) / 0.001
+            - record: slo:tailscale:burn_rate:30m
+              expr: (1 - avg_over_time(up{job="tailscale-nodes"}[30m])) / 0.01
+            - record: slo:tailscale:burn_rate:6h
+              expr: (1 - avg_over_time(up{job="tailscale-nodes"}[6h])) / 0.01
+
+        - name: family-services.slo.alerts
+          rules:
+            # Fast burn: 14.4× over 1h burns 2% of monthly budget in 1h.
+            # Confirm with 5m to avoid flapping.
+            - alert: PlexErrorBudgetBurnFast
+              expr: slo:plex:burn_rate:1h > 14.4 and slo:plex:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: plex}
+              annotations:
+                summary: "Plex burning SLO budget fast (>14.4x for 1h)"
+                description: "At current burn, monthly budget exhausts in <2 days."
+            - alert: PlexErrorBudgetBurnSlow
+              expr: slo:plex:burn_rate:6h > 6 and slo:plex:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: plex}
+              annotations:
+                summary: "Plex burning SLO budget slowly (>6x for 6h)"
+
+            - alert: MinecraftErrorBudgetBurnFast
+              expr: slo:minecraft:burn_rate:1h > 14.4 and slo:minecraft:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: minecraft}
+              annotations:
+                summary: "Minecraft burning SLO budget fast"
+            - alert: MinecraftErrorBudgetBurnSlow
+              expr: slo:minecraft:burn_rate:6h > 6 and slo:minecraft:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: minecraft}
+              annotations:
+                summary: "Minecraft burning SLO budget slowly"
+
+            - alert: PiholeErrorBudgetBurnFast
+              expr: slo:pihole:burn_rate:1h > 14.4 and slo:pihole:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: pihole}
+              annotations:
+                summary: "Pi-hole DNS burning SLO budget fast — household DNS may be down"
+            - alert: PiholeErrorBudgetBurnSlow
+              expr: slo:pihole:burn_rate:6h > 6 and slo:pihole:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: pihole}
+              annotations:
+                summary: "Pi-hole DNS burning SLO budget slowly"
+
+            - alert: NasErrorBudgetBurnFast
+              expr: slo:nas:burn_rate:1h > 14.4 and slo:nas:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: nas}
+              annotations:
+                summary: "NAS unreachable — burning SLO budget fast"
+            - alert: NasErrorBudgetBurnSlow
+              expr: slo:nas:burn_rate:6h > 6 and slo:nas:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: nas}
+              annotations:
+                summary: "NAS reachability degraded over 6h"
+
+            - alert: TailscaleNodeBurnFast
+              expr: slo:tailscale:burn_rate:1h > 14.4 and slo:tailscale:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: tailscale}
+              annotations:
+                summary: "Tailscale node {{ $labels.hostname }} burning SLO budget fast"
+            - alert: TailscaleNodeBurnSlow
+              expr: slo:tailscale:burn_rate:6h > 6 and slo:tailscale:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: tailscale}
+              annotations:
+                summary: "Tailscale node {{ $labels.hostname }} burn slow (>6x for 6h)"

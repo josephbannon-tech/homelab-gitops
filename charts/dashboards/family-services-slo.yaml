@@ -562,7 +562,7 @@ data:
           "gridPos": {
             "x": 0,
             "y": 14,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -621,9 +621,9 @@ data:
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 4,
+            "x": 6,
             "y": 14,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -671,63 +671,6 @@ data:
         },
         {
           "id": 13,
-          "title": "Library duration",
-          "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "gridPos": {
-            "x": 8,
-            "y": 14,
-            "w": 4,
-            "h": 4
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "textMode": "auto"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "d",
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "sum(library_duration_total{server_type=\"plex\"}) / 1000 / 86400",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 14,
           "title": "Estimated bandwidth out (5m rate)",
           "type": "timeseries",
           "datasource": {
@@ -1269,7 +1212,7 @@ data:
         },
         {
           "id": 25,
-          "title": "NAS",
+          "title": "NAS / Storage Health",
           "type": "row",
           "collapsed": false,
           "gridPos": {
@@ -1343,7 +1286,7 @@ data:
         },
         {
           "id": 27,
-          "title": "ZFS pools online",
+          "title": "Data pools online",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -1377,8 +1320,16 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "green",
+                    "value": 2
                   }
                 ]
               }
@@ -1391,7 +1342,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "count(node_zfs_zpool_state{hostname=\"JBNAS01\", state=\"online\"} == 1)",
+              "expr": "count(node_zfs_zpool_state{hostname=\"JBNAS01\", state=\"online\", zpool!=\"boot-pool\"} == 1)",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -1465,7 +1416,7 @@ data:
         },
         {
           "id": 29,
-          "title": "SMART devices reporting",
+          "title": "Drives with SMART warning (red = action needed)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -1474,64 +1425,7 @@ data:
           "gridPos": {
             "x": 12,
             "y": 29,
-            "w": 4,
-            "h": 4
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "textMode": "auto"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "count(smartctl_device{instance=\"192.168.0.200\"})",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 30,
-          "title": "Failing SMART (proxmox host)",
-          "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "gridPos": {
-            "x": 16,
-            "y": 29,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -1582,7 +1476,7 @@ data:
           ]
         },
         {
-          "id": 31,
+          "id": 30,
           "title": "Tailscale nodes up",
           "type": "stat",
           "datasource": {
@@ -1590,9 +1484,9 @@ data:
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 20,
+            "x": 18,
             "y": 29,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {

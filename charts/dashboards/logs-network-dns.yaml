@@ -51,8 +51,8 @@ data:
           "title": "Log rate per host (lines/sec)",
           "type": "timeseries",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
+            "type": "loki",
+            "uid": "loki"
           },
           "gridPos": {
             "x": 0,
@@ -107,8 +107,8 @@ data:
           "title": "Error rate per host (lines/sec)",
           "type": "timeseries",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
+            "type": "loki",
+            "uid": "loki"
           },
           "gridPos": {
             "x": 12,
@@ -163,8 +163,8 @@ data:
           "title": "Warning rate per host (lines/sec)",
           "type": "timeseries",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
+            "type": "loki",
+            "uid": "loki"
           },
           "gridPos": {
             "x": 0,
@@ -219,8 +219,8 @@ data:
           "title": "Top 10 noisy systemd units (lines/sec)",
           "type": "timeseries",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
+            "type": "loki",
+            "uid": "loki"
           },
           "gridPos": {
             "x": 12,
@@ -288,8 +288,8 @@ data:
           "title": "Failed SSH password attempts",
           "type": "timeseries",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
+            "type": "loki",
+            "uid": "loki"
           },
           "gridPos": {
             "x": 0,

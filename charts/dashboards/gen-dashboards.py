@@ -47,9 +47,9 @@ def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None, color_mo
                      "legendFormat": legend, "refId": "A"}]
     }
 
-def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none"):
+def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none", ds=None):
     return {
-        "id": id, "title": title, "type": "timeseries", "datasource": DS,
+        "id": id, "title": title, "type": "timeseries", "datasource": ds or DS,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "tooltip": {"mode": "multi", "sort": "desc"},
@@ -66,6 +66,10 @@ def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none"):
         },
         "targets": targets
     }
+
+def loki_timeseries(id, title, targets, unit, x, y, w, h, fill=10):
+    """Timeseries panel pinned to the Loki datasource (panel-level, not just per-target)."""
+    return timeseries(id, title, targets, unit, x, y, w, h, fill=fill, ds=LOKI_DS)
 
 def t(expr, legend, ref="A"):
     return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref}
@@ -303,17 +307,14 @@ slo_panels = [
                "short", 16, 6, 8, 7, fill=0),
 
     row(10, "Plex", 13),
-    stat(11, "Server up", 'up{job="plex"}', "short", 0, 14, 4, 4,
+    stat(11, "Server up", 'up{job="plex"}', "short", 0, 14, 6, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "green", "value": 1}]}),
     stat(12, "Library size",
-         'sum(library_storage_total{server_type="plex"})', "bytes", 4, 14, 4, 4,
+         'sum(library_storage_total{server_type="plex"})', "bytes", 6, 14, 6, 4,
          thresholds=GREEN_ONLY),
-    stat(13, "Library duration",
-         'sum(library_duration_total{server_type="plex"}) / 1000 / 86400',
-         "d", 8, 14, 4, 4, thresholds=GREEN_ONLY),
-    timeseries(14, "Estimated bandwidth out (5m rate)",
+    timeseries(13, "Estimated bandwidth out (5m rate)",
                [t('rate(estimated_transmit_bytes_total{server_type="plex"}[5m])',
                   "{{server}}")],
                "Bps", 12, 14, 12, 4),
@@ -348,33 +349,37 @@ slo_panels = [
                [t("rate(pihole_dns_queries_all_types[5m])", "qps")],
                "ops", 12, 24, 12, 4),
 
-    row(25, "NAS", 28),
+    row(25, "NAS / Storage Health", 28),
     stat(26, "NAS reachable",
          'up{job="node-exporter-external", hostname="JBNAS01"}',
          "short", 0, 29, 4, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "green", "value": 1}]}),
-    stat(27, "ZFS pools online",
-         'count(node_zfs_zpool_state{hostname="JBNAS01", state="online"} == 1)',
-         "short", 4, 29, 4, 4, thresholds=GREEN_ONLY),
+    # Filter boot-pool out — only data pools (JBNAS_SSD, JBNAS_MEDIA) count.
+    stat(27, "Data pools online",
+         'count(node_zfs_zpool_state{hostname="JBNAS01", state="online", zpool!="boot-pool"} == 1)',
+         "short", 4, 29, 4, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "yellow", "value": 1},
+                               {"color": "green", "value": 2}]}),
     stat(28, "ARC hit ratio",
          ARC_HIT_RATIO, "percent", 8, 29, 4, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "yellow", "value": 70},
                                {"color": "green", "value": 90}]}),
-    stat(29, "SMART devices reporting",
-         'count(smartctl_device{instance="192.168.0.200"})',
-         "short", 12, 29, 4, 4, thresholds=GREEN_ONLY),
-    stat(30, "Failing SMART (proxmox host)",
+    # Drives with smartctl exit_status > 0 are flagged. Exit 64 means
+    # "DISK FAILING" per smartctl's bitmask. Real signal even at value 1+.
+    stat(29, "Drives with SMART warning (red = action needed)",
          'count(smartctl_device_smartctl_exit_status{instance="192.168.0.200"} > 0) or vector(0)',
-         "short", 16, 29, 4, 4,
+         "short", 12, 29, 6, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "green", "value": None},
                                {"color": "red", "value": 1}]}),
-    stat(31, "Tailscale nodes up",
-         'count(up{job="tailscale-nodes"} == 1)', "short", 20, 29, 4, 4,
+    stat(30, "Tailscale nodes up",
+         'count(up{job="tailscale-nodes"} == 1)', "short", 18, 29, 6, 4,
          thresholds=GREEN_ONLY),
 ]
 
@@ -405,50 +410,81 @@ backup-status pipeline lands, the panels above this one will populate with
 last-success timestamps and replace this static list.
 """
 
+FS_FILTER = 'fstype!~"tmpfs|overlay|squashfs|devtmpfs|fuse.*|ramfs|autofs|nsfs|tracefs|securityfs|cgroup.*|bpf|debugfs|configfs|hugetlbfs|mqueue|pstore|sysfs|proc|none",mountpoint!~"/var/lib/kubelet.*|/var/lib/docker.*|/run.*|/snap.*|/boot/efi"'
+
+# Days-to-full per filesystem via predict_linear (positive value = days remaining
+# under current fill rate; absent series = filesystem stable or growing slowly).
+DAYS_TO_FULL = (
+    f'(node_filesystem_avail_bytes{{{FS_FILTER}}} / '
+    f' (-deriv(node_filesystem_avail_bytes{{{FS_FILTER}}}[7d]) > 0) ) / 86400'
+)
+
 capacity_panels = [
-    row(1, "Filesystem Free Space (%)", 0),
+    row(1, "Filesystem Free Space (%) — across all hosts", 0),
     bargauge(2, "Free %",
-             [t('100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"} / '
-                'node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"}',
-                '{{hostname}} {{mountpoint}}')],
-             "percent", 0, 1, 24, 8),
+             [t(f'100 * node_filesystem_avail_bytes{{{FS_FILTER}}} / '
+                f'node_filesystem_size_bytes{{{FS_FILTER}}}',
+                '{{hostname}}: {{mountpoint}}')],
+             "percent", 0, 1, 24, 10),
 
-    row(3, "ZFS Pool Used vs Capacity (NAS)", 9),
-    bargauge(4, "Pool Used %",
-             [t('100 * (node_zfs_zpool_size{hostname="JBNAS01"} - node_zfs_zpool_free{hostname="JBNAS01"}) / '
-                'node_zfs_zpool_size{hostname="JBNAS01"}', '{{zpool}}')],
-             "percent", 0, 10, 12, 6),
-    stat(5, "Pool free total",
-         'sum(node_zfs_zpool_free{hostname="JBNAS01"})', "bytes", 12, 10, 6, 6,
+    row(3, "Filesystem Days-to-Full (linear projection from last 7d)", 11),
+    bargauge(4, "Days remaining (positive = filling; absent = stable/growing slowly)",
+             [t(DAYS_TO_FULL, '{{hostname}}: {{mountpoint}}')],
+             "d", 0, 12, 24, 8, min_val=0, max_val=180),
+
+    row(5, "ZFS Pools (NAS)", 20),
+    stat(6, "JBNAS_SSD pool state",
+         'node_zfs_zpool_state{hostname="JBNAS01", zpool="JBNAS_SSD", state="online"}',
+         "short", 0, 21, 6, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(7, "JBNAS_MEDIA pool state",
+         'node_zfs_zpool_state{hostname="JBNAS01", zpool="JBNAS_MEDIA", state="online"}',
+         "short", 6, 21, 6, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "green", "value": 1}]}),
+    stat(8, "ARC hit ratio",
+         ARC_HIT_RATIO, "percent", 12, 21, 6, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "red", "value": None},
+                               {"color": "yellow", "value": 70},
+                               {"color": "green", "value": 90}]}),
+    stat(9, "ARC size",
+         'node_zfs_arc_size{hostname="JBNAS01"}', "bytes", 18, 21, 6, 4,
          thresholds=GREEN_ONLY),
-    stat(6, "Pool size total",
-         'sum(node_zfs_zpool_size{hostname="JBNAS01"})', "bytes", 18, 10, 6, 6,
-         thresholds=NO_THRESH),
 
-    row(7, "Pool Used Trend (30d)", 16),
-    timeseries(8, "ZFS pool used bytes",
-               [t('node_zfs_zpool_size{hostname="JBNAS01"} - node_zfs_zpool_free{hostname="JBNAS01"}',
-                  "{{zpool}}")],
-               "bytes", 0, 17, 24, 9),
-
-    row(9, "Estate Headroom — RAM & CPU per Host", 26),
-    timeseries(10, "Free memory (%)",
+    row(10, "Estate Headroom — RAM & CPU per Host", 25),
+    timeseries(11, "Free memory (%)",
                [t('100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes',
                   "{{hostname}}")],
-               "percent", 0, 27, 12, 8),
-    timeseries(11, "CPU idle (%)",
+               "percent", 0, 26, 12, 8),
+    timeseries(12, "CPU idle (%)",
                [t('100 * avg by (hostname) (rate(node_cpu_seconds_total{mode="idle"}[5m]))',
                   "{{hostname}}")],
-               "percent", 12, 27, 12, 8),
+               "percent", 12, 26, 12, 8),
 
-    row(12, "SMART Device Power-On Hours (JBSRV01)", 35),
-    timeseries(13, "Power-on hours",
-               [t('smartctl_device_power_on_hours{instance="192.168.0.200"}',
+    row(13, "SMART — Power-on time + warnings (JBSRV01 = all physical drives)", 34),
+    timeseries(14, "Power-on hours per drive",
+               [t('smartctl_device_power_on_seconds{instance="192.168.0.200"} / 3600',
                   "{{device}} {{model_name}}")],
-               "h", 0, 36, 24, 8),
+               "h", 0, 35, 16, 8),
+    stat(15, "Drives with SMART warning (exit_status > 0)",
+         'count(smartctl_device_smartctl_exit_status{instance="192.168.0.200"} > 0) or vector(0)',
+         "short", 16, 35, 8, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "green", "value": None},
+                               {"color": "red", "value": 1}]}),
+    stat(16, "Drives with SMART status FAILED",
+         'count(smartctl_device_smart_status{instance="192.168.0.200"} == 0) or vector(0)',
+         "short", 16, 39, 8, 4,
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "green", "value": None},
+                               {"color": "red", "value": 1}]}),
 
-    row(14, "Backup / DR Status", 44),
-    text_panel(15, "Open gaps", CAP_BACKUP_GAPS, 0, 45, 24, 8),
+    row(17, "Backup / DR Status", 43),
+    text_panel(18, "Open gaps", CAP_BACKUP_GAPS, 0, 44, 24, 9),
 ]
 
 # ── Dashboard 5: Logs + Network / DNS Overview ──────────────────────────────
@@ -461,21 +497,21 @@ TOP_NOISY_UNITS = 'topk(10, sum by (hostname, unit) (rate({job="systemd-journal"
 
 logs_panels = [
     row(1, "Loki — Log Activity (last 5m)", 0),
-    timeseries(2, "Log rate per host (lines/sec)",
+    loki_timeseries(2, "Log rate per host (lines/sec)",
                [t_loki(LOG_RATE_BY_HOST, "{{hostname}}")],
                "ops", 0, 1, 12, 8),
-    timeseries(3, "Error rate per host (lines/sec)",
+    loki_timeseries(3, "Error rate per host (lines/sec)",
                [t_loki(ERR_RATE_BY_HOST, "{{hostname}}")],
                "ops", 12, 1, 12, 8),
-    timeseries(4, "Warning rate per host (lines/sec)",
+    loki_timeseries(4, "Warning rate per host (lines/sec)",
                [t_loki(WARN_RATE_BY_HOST, "{{hostname}}")],
                "ops", 0, 9, 12, 8),
-    timeseries(5, "Top 10 noisy systemd units (lines/sec)",
+    loki_timeseries(5, "Top 10 noisy systemd units (lines/sec)",
                [t_loki(TOP_NOISY_UNITS, "{{hostname}} / {{unit}}")],
                "ops", 12, 9, 12, 8),
 
     row(6, "SSH auth failures (last 24h, journal)", 17),
-    timeseries(7, "Failed SSH password attempts",
+    loki_timeseries(7, "Failed SSH password attempts",
                [t_loki(SSHD_FAILS, "{{hostname}}")],
                "short", 0, 18, 24, 8),
 

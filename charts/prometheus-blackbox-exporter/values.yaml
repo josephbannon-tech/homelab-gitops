@@ -1,0 +1,59 @@
+prometheus-blackbox-exporter:
+  # Modules: how blackbox probes a target. The Probe CRD in
+  # servicemonitor.yaml drives the dns_pihole module against
+  # 192.168.0.205:53/udp to produce probe_success{module="dns_pihole"},
+  # which is the SLI behind PiholeDnsBurnFast.
+  config:
+    modules:
+      dns_pihole:
+        prober: dns
+        timeout: 5s
+        dns:
+          transport_protocol: udp
+          preferred_ip_protocol: ip4
+          query_name: health.check.local
+          query_type: A
+          valid_rcodes: [NOERROR]
+
+  # ServiceMonitor configuration:
+  #   * The chart's `serviceMonitor.targets` mechanism (target-style SMs) is
+  #     deprecated; we use a Probe CRD instead. Leave this disabled.
+  #   * `selfMonitor` scrapes blackbox's own /metrics so the exporter itself
+  #     shows up in `up{job=~"prometheus-blackbox-exporter"}`.
+  serviceMonitor:
+    enabled: false
+    selfMonitor:
+      enabled: true
+      labels:
+        release: kube-prometheus-stack
+
+  # Pod-level seccomp: not set by upstream defaults; add RuntimeDefault to
+  # match the hardening pattern used by pihole-exporter / plex-exporter.
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+
+  # Container security context. Upstream defaults are already mostly fine
+  # (readOnlyRootFilesystem, runAsNonRoot, drop ALL); we tighten user/group
+  # to nobody (65534) to be consistent with the other exporters.
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+  replicas: 1

@@ -31,6 +31,11 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
     type             = "debian"
   }
 
+  startup {
+    order    = 1
+    up_delay = 30
+  }
+
   start_on_boot = true
   started       = true
 

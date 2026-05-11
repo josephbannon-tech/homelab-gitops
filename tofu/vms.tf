@@ -33,7 +33,7 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"
-    enabled      = true  # deprecated but still required by provider schema
+    enabled      = true # deprecated but still required by provider schema
     disconnected = false
     firewall     = true
     mac_address  = null
@@ -43,6 +43,11 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
     trunks       = null
     vlan_id      = null
   }]
+
+  startup {
+    order    = 2
+    up_delay = 10
+  }
 
   on_boot = true
   started = true
@@ -89,7 +94,7 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"
-    enabled      = true  # deprecated but still required by provider schema
+    enabled      = true # deprecated but still required by provider schema
     disconnected = false
     firewall     = true
     mac_address  = null
@@ -100,7 +105,11 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     vlan_id      = null
   }]
 
-  on_boot = false
+  startup {
+    order = 3
+  }
+
+  on_boot = true
   started = true
 
   lifecycle {
@@ -144,7 +153,7 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"
-    enabled      = true  # deprecated but still required by provider schema
+    enabled      = true # deprecated but still required by provider schema
     disconnected = false
     firewall     = true
     mac_address  = null
@@ -155,7 +164,11 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
     vlan_id      = null
   }]
 
-  on_boot = false
+  startup {
+    order = 3
+  }
+
+  on_boot = true
   started = true
 
   lifecycle {
@@ -199,7 +212,7 @@ resource "proxmox_virtual_environment_vm" "jbvm03" {
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"
-    enabled      = true  # deprecated but still required by provider schema
+    enabled      = true # deprecated but still required by provider schema
     disconnected = false
     firewall     = false
     mac_address  = null
@@ -210,7 +223,74 @@ resource "proxmox_virtual_environment_vm" "jbvm03" {
     vlan_id      = null
   }]
 
-  on_boot = false
+  startup {
+    order = 3
+  }
+
+  on_boot = true
+  started = true
+
+  lifecycle {
+    ignore_changes = [
+      operating_system, serial_device, description, initialization,
+      agent, machine, keyboard_layout,
+    ]
+  }
+}
+
+# JBK8S01 — k3s + observability stack / Ubuntu 24.04 (VMID 106)
+import {
+  to = proxmox_virtual_environment_vm.jbk8s01
+  id = "JBSRV01/106"
+}
+
+resource "proxmox_virtual_environment_vm" "jbk8s01" {
+  node_name = "JBSRV01"
+  vm_id     = 106
+  name      = "JBK8S01"
+
+  machine       = "q35"
+  bios          = "seabios"
+  scsi_hardware = "virtio-scsi-pci"
+
+  agent {
+    enabled = true
+  }
+
+  cpu {
+    cores = 4
+    type  = "x86-64-v2-AES"
+  }
+
+  memory {
+    dedicated = 8192
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    interface    = "scsi0"
+    size         = 40
+  }
+
+  network_device = [{
+    bridge       = "vmbr0"
+    model        = "virtio"
+    enabled      = true # deprecated but still required by provider schema
+    disconnected = false
+    firewall     = false
+    mac_address  = null
+    mtu          = null
+    queues       = null
+    rate_limit   = null
+    trunks       = null
+    vlan_id      = null
+  }]
+
+  startup {
+    order = 3
+  }
+
+  on_boot = true
   started = true
 
   lifecycle {

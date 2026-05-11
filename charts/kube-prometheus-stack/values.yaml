@@ -293,10 +293,12 @@ kube-prometheus-stack:
             # That measures *exporter* availability, NOT user-facing DNS
             # reachability. The exporter and pihole-FTL :53 are independent
             # paths; the household can resolve DNS perfectly while these
-            # alerts fire. Wording reflects that. TODO (follow-up): add
-            # blackbox-exporter with the `dns` module probing
-            # 192.168.0.205:53/udp for a real user-DNS SLI, then promote
-            # severity to critical once that signal exists.
+            # alerts fire. Wording reflects that.
+            #
+            # The real user-DNS SLI (blackbox dns_pihole probe on UDP/53) now
+            # exists as `PiholeDnsBurnFast` in the `pihole-dns-real-sli` rules
+            # block below; these warning alerts remain as a secondary signal
+            # on the exporter→admin-API path.
             - alert: PiholeErrorBudgetBurnFast
               expr: slo:pihole:burn_rate:1h > 14.4 and slo:pihole:burn_rate:5m > 14.4
               for: 2m
@@ -386,3 +388,64 @@ kube-prometheus-stack:
                 summary: "ZFS pool {{ $labels.zpool }} on {{ $labels.hostname }} is in state {{ $labels.state }}"
                 description: "Pool {{ $labels.zpool }} reported state '{{ $labels.state }}' for >5m. Run `zpool status -v {{ $labels.zpool }}` on {{ $labels.hostname }} to triage. JBNAS_MEDIA is a stripe pool — DEGRADED there means data loss is imminent."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/zfs-pool-degraded.md"
+
+    # Real user-facing Pi-hole DNS SLI via blackbox-exporter (charts/
+    # prometheus-blackbox-exporter). SLI is probe_success{module="dns_pihole"},
+    # which is an actual UDP/53 DNS lookup against 192.168.0.205, distinct
+    # from the exporter-scrape SLI `up{job="pihole"}` (kept for the slow-burn
+    # warning above). Closes the TODO at the PiholeErrorBudgetBurn comment.
+    pihole-dns-real-sli:
+      groups:
+        - name: pihole-dns.slo.recording
+          interval: 1m
+          rules:
+            # 99.9% SLO target → error budget = 0.001
+            - record: slo:pihole_dns:availability:ratio_30d
+              expr: avg_over_time(probe_success{module="dns_pihole"}[30d])
+            - record: slo:pihole_dns:burn_rate:5m
+              expr: (1 - avg_over_time(probe_success{module="dns_pihole"}[5m])) / 0.001
+            - record: slo:pihole_dns:burn_rate:30m
+              expr: (1 - avg_over_time(probe_success{module="dns_pihole"}[30m])) / 0.001
+            - record: slo:pihole_dns:burn_rate:1h
+              expr: (1 - avg_over_time(probe_success{module="dns_pihole"}[1h])) / 0.001
+            - record: slo:pihole_dns:burn_rate:6h
+              expr: (1 - avg_over_time(probe_success{module="dns_pihole"}[6h])) / 0.001
+
+        - name: pihole-dns.slo.alerts
+          rules:
+            # Critical: this is the household-impacting signal. Unlike the
+            # exporter-based PiholeErrorBudgetBurnFast (warning), failure
+            # here means real DNS is broken for every device on the LAN.
+            - alert: PiholeDnsBurnFast
+              expr: slo:pihole_dns:burn_rate:1h > 14.4 and slo:pihole_dns:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: pihole}
+              annotations:
+                summary: "household DNS unreachable (blackbox dns_pihole probe to 192.168.0.205:53)"
+                description: "Real user-facing DNS SLI is failing: blackbox-exporter cannot resolve health.check.local via UDP/53 against 192.168.0.205 (JBDNS01). Every device on the LAN is impacted. Triage: 1) `dig @192.168.0.205 +short google.com` from another host, 2) check pihole-FTL service on JBDNS01 (`systemctl status pihole-FTL`), 3) check upstream resolvers in Pi-hole admin UI, 4) verify JBDNS01 networking is up. This SLI is independent of the pihole-exporter scrape (which has its own warning alerts)."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
+
+    # Loki / Promtail health. Both are scraped via ServiceMonitor enabled in
+    # charts/loki/values.yaml and charts/promtail/values.yaml. Without these
+    # alerts a silent log-ingestion failure would leave dashboards quietly
+    # blank.
+    logging-stack-health:
+      groups:
+        - name: logging.alerts
+          rules:
+            - alert: LokiDown
+              expr: up{job="loki"} == 0
+              for: 5m
+              labels: {severity: warning, service: loki}
+              annotations:
+                summary: "Loki is down — log ingestion stopped"
+                description: "Loki ServiceMonitor scrape has failed for >5m. Log-based dashboards (logs-network-dns, per-host-fleet) will go blank and Promtail will buffer until disk pressure. Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=loki` and the loki PVC."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/loki-down.md"
+            - alert: PromtailDown
+              expr: up{job="promtail"} == 0
+              for: 5m
+              labels: {severity: warning, service: promtail}
+              annotations:
+                summary: "Promtail down on {{ $labels.instance }} — journal not shipping to Loki"
+                description: "Promtail scrape has failed for >5m on {{ $labels.instance }}. Journal entries from that node are no longer reaching Loki. Check the promtail DaemonSet pod on the affected node and its position file under /run/promtail/."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/promtail-down.md"

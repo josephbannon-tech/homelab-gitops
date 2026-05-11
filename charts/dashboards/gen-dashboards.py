@@ -439,18 +439,40 @@ slo_panels = [
 
 # ── Dashboard 4: Capacity / Growth / Backup-DR ───────────────────────────────
 
-CAP_BACKUP_GAPS = """
-### Open backup / DR gaps (from `project_open_defects`)
+# Backup-age tiles read backup_last_success_timestamp_seconds from each host's
+# textfile_collector. Thresholds are per-job because cadences span 60x
+# (1m mover vs 24h config backups); a uniform threshold would either flap on
+# slow backups or hide a dead mover for hours.
+# Entry: (label_selector, display_title, yellow_seconds, red_seconds)
+BACKUP_JOBS = [
+    ('name="jbsrv01-config-backup"',          "JBSRV01 config",     90000, 180000),
+    ('name="jbdns01-config-backup"',          "JBDNS01 config",     90000, 180000),
+    ('name="jbvm02-secrets-backup"',          "JBVM02 secrets",     90000, 180000),
+    ('name="mc-world-backup",slot="daily"',   "MC world (daily)",   90000, 180000),
+    ('name="mc-world-backup",slot="rolling"', "MC world (4h)",      18000,  36000),
+    ('name="nas-dropbox-mover"',              "NAS dropbox mover",    180,    600),
+]
 
-- **JBSRV01** has no scheduled config backup. Loss of `/etc/pve` is reconstructable but slow.
-- **JBDNS01** has no backup at all. Pi-hole rebuild is doc-driven; gravity list, custom DNS, DHCP leases all rebuild from code.
+def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s):
+    """Stat tile showing seconds since last backup heartbeat. Clamp guards
+    against clock skew (TrueNAS time vs Prometheus time)."""
+    return stat(id, title,
+                f'clamp_min(time() - backup_last_success_timestamp_seconds{{{selector}}}, 0)',
+                "dtdurations", x, y, w, h, thresholds={
+                    "mode": "absolute",
+                    "steps": [{"color": "green",  "value": None},
+                              {"color": "yellow", "value": yellow_s},
+                              {"color": "red",    "value": red_s}],
+                })
+
+CAP_BACKUP_GAPS = """
+### Residual gaps not covered by heartbeats above
+
 - **JBNAS_MEDIA** is a stripe pool (no parity, no snapshots). Single HDD failure loses 5 TB of Plex library.
-- **`data` pool** rsync targets back up project data, but `_inbox`, `mc-backups`, and `system-state` are single-copy.
+- **`data` pool**: `_inbox` and `system-state` paths are single-copy (`mc-backups` is now covered via `mc-world-backup`).
 - **JBVM01 credential store** is single-copy on local disk.
 
-These are tracked in `project_open_defects.md` (memory). When a textfile-collector
-backup-status pipeline lands, the panels above this one will populate with
-last-success timestamps and replace this static list.
+Tracked in `project_open_defects.md`.
 """
 
 FS_FILTER = ('fstype!~"tmpfs|overlay|squashfs|devtmpfs|fuse.*|ramfs|autofs|'
@@ -513,8 +535,17 @@ capacity_panels = [
          f'or vector(0)',
          "short", 16, 39, 8, 4, thresholds=ZERO_GREEN_ONE_RED),
 
-    row(17, "Backup / DR Status", 43),
-    text_panel(18, "Open gaps", CAP_BACKUP_GAPS, 0, 44, 24, 9),
+    row(17, "Backup / DR Status: last successful heartbeat per job", 43),
+    *[backup_age_stat(18 + i, title, selector,
+                      (i % 6) * 4, 44, 4, 4, yellow_s, red_s)
+      for i, (selector, title, yellow_s, red_s) in enumerate(BACKUP_JOBS)],
+    # Meta-tile separates "textfile dir missing or unreadable" from "all
+    # backups failed simultaneously". Without it the 6 tiles above light red
+    # in unison and the real cause hides.
+    stat(24, "Textfile scrape error (any host)",
+         'max(node_textfile_scrape_error{job="node-exporter-external"})',
+         "short", 0, 48, 6, 4, thresholds=ZERO_GREEN_ONE_RED),
+    text_panel(25, "Residual gaps", CAP_BACKUP_GAPS, 6, 48, 18, 4),
 ]
 
 # ── Dashboard 5: Logs + Network / DNS Overview ──────────────────────────────

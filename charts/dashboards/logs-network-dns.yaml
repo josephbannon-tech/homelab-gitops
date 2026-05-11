@@ -701,7 +701,7 @@ data:
         },
         {
           "id": 15,
-          "title": "Network \u2014 Per-Host Throughput",
+          "title": "Pi-hole DNS \u2014 Blackbox probe (real user-facing SLI)",
           "type": "row",
           "collapsed": false,
           "gridPos": {
@@ -714,6 +714,190 @@ data:
         },
         {
           "id": 16,
+          "title": "DNS probe status",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 39,
+            "w": 6,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "probe_success{module=\"dns_pihole\"}",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "title": "Probe success (1 = OK, 0 = fail)",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 39,
+            "w": 9,
+            "h": 4
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "probe_success{module=\"dns_pihole\"}",
+              "legendFormat": "probe",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "title": "DNS lookup time (s)",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 15,
+            "y": 39,
+            "w": 9,
+            "h": 4
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "probe_dns_lookup_time_seconds{module=\"dns_pihole\"}",
+              "legendFormat": "lookup",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "title": "Network \u2014 Per-Host Throughput",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 43,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 20,
           "title": "Receive (Bps)",
           "type": "timeseries",
           "datasource": {
@@ -722,7 +906,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 39,
+            "y": 44,
             "w": 12,
             "h": 8
           },
@@ -768,7 +952,7 @@ data:
           ]
         },
         {
-          "id": 17,
+          "id": 21,
           "title": "Transmit (Bps)",
           "type": "timeseries",
           "datasource": {
@@ -777,7 +961,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 39,
+            "y": 44,
             "w": 12,
             "h": 8
           },
@@ -823,20 +1007,20 @@ data:
           ]
         },
         {
-          "id": 18,
+          "id": 22,
           "title": "Tailscale nodes (debug metrics)",
           "type": "row",
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 47,
+            "y": 52,
             "w": 24,
             "h": 1
           },
           "panels": []
         },
         {
-          "id": 19,
+          "id": 23,
           "title": "Nodes up",
           "type": "stat",
           "datasource": {
@@ -845,7 +1029,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 48,
+            "y": 53,
             "w": 6,
             "h": 4
           },
@@ -893,7 +1077,7 @@ data:
           ]
         },
         {
-          "id": 20,
+          "id": 24,
           "title": "Total dropped packets (since reboot)",
           "type": "stat",
           "datasource": {
@@ -902,7 +1086,7 @@ data:
           },
           "gridPos": {
             "x": 6,
-            "y": 48,
+            "y": 53,
             "w": 6,
             "h": 4
           },
@@ -958,7 +1142,7 @@ data:
           ]
         },
         {
-          "id": 21,
+          "id": 25,
           "title": "Packet forward errors / sec",
           "type": "timeseries",
           "datasource": {
@@ -967,7 +1151,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 48,
+            "y": 53,
             "w": 12,
             "h": 4
           },

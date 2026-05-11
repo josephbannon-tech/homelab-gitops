@@ -54,3 +54,36 @@ loki:
   # Disable nginx gateway — Promtail connects directly to port 3100
   gateway:
     enabled: false
+
+  # Disable loki-canary DaemonSet (latency probe) — keys are top-level on
+  # this chart, not under `monitoring`. The chart's `helm test` hook also
+  # depends on the canary, so disable both together.
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+
+  # ServiceMonitor: gets Loki into `up{job="loki"}` so the LokiDown alert
+  # (kube-prometheus-stack/values.yaml → logging-stack-health) has a signal.
+  # The chart hard-codes a relabeling that rewrites job to "<namespace>/loki";
+  # the trailing `relabelings:` entry below sets it back to plain "loki" so
+  # the alert query `up{job="loki"}` matches (same pattern as
+  # charts/pihole-exporter/servicemonitor.yaml).
+  # MetricsInstance is a Grafana Agent Operator resource — not installed
+  # here, so disable to avoid an unresolvable CRD reference.
+  monitoring:
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: kube-prometheus-stack
+      relabelings:
+        - targetLabel: job
+          replacement: loki
+      metricsInstance:
+        enabled: false
+    selfMonitoring:
+      enabled: false
+    rules:
+      enabled: false
+    dashboards:
+      enabled: false

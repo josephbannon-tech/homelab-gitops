@@ -1,0 +1,25 @@
+# Probe CRD: prometheus-operator native way to drive blackbox at a target.
+# The upstream chart's `selfMonitor` (enabled in values.yaml) emits the
+# ServiceMonitor for blackbox's own /metrics; this resource is what makes
+# probe_success{module="dns_pihole"} appear in Prometheus.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: pihole-dns
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-dns-pihole
+  interval: 30s
+  module: dns_pihole
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - 192.168.0.205:53
+      labels:
+        hostname: JBDNS01
+        role: dns

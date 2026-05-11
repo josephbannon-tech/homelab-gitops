@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-blackbox-exporter
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/redblackoutcast-cell/homelab-gitops.git
+    targetRevision: HEAD
+    path: charts/prometheus-blackbox-exporter
+    helm:
+      releaseName: prometheus-blackbox-exporter
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

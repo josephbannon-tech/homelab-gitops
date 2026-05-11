@@ -121,7 +121,7 @@ Three gaps closed in this phase:
 
 **Secrets in Git**: credentials were previously applied manually and lived outside version control. Migrated to Bitnami Sealed Secrets. The Discord webhook and Proxmox API token are now `SealedSecret` CRDs in `charts/secrets/`, encrypted asymmetrically against the cluster's master key. The encrypted blobs are safe to commit publicly. Cluster rebuild now requires one secret (the master key backup) instead of recreating every credential from memory.
 
-**Infrastructure as code**: all VMs and the Pi-hole LXC container are now described in OpenTofu (`tofu/`) using the bpg/proxmox provider. Existing infra was imported into state rather than rebuilt. `tofu plan` shows 0 destroys, 0 replacements. The import process surfaced several provider quirks documented in Lessons Learned.
+**Infrastructure as code**: all six guests on the Proxmox host (four VMs plus the Pi-hole LXC plus the k3s VM, which was the last one to come under management) are described in OpenTofu (`tofu/`) using the bpg/proxmox provider. Existing infra was imported into state rather than rebuilt. The import process surfaced several provider quirks documented in Lessons Learned. Maintaining IaC is its own operating cost: live changes made via `pct set` or `qm set` produce silent drift between HCL and state, and a blind `tofu apply` after that drift would have stripped boot-order config and broken startup sequencing. The discipline that keeps the lid on is treating any non-empty `tofu plan` as a defect, not a deferred task, and closing the loop in the same change window the live edit was made.
 
 **CI**: GitHub Actions runs on every push and PR. `yamllint` on all YAML (excluding sealed secret blobs whose encrypted content exceeds line limits by design) and `helm dependency update` + `helm lint` across all five umbrella charts.
 
@@ -134,6 +134,19 @@ Three gaps closed in this phase:
 <img width="1300" height="1528" alt="image" src="https://github.com/user-attachments/assets/3ca2e7b7-c6c6-47a4-b0dd-e5418ab2e5fe" />
 <br>
 <img width="1666" height="1263" alt="image" src="https://github.com/user-attachments/assets/4fff4c2f-e62d-479c-acff-13d7f57b1015" />
+
+### Phase 4: SLOs and the family-services workload ✓
+
+The earlier phases got every service emitting metrics and every host shipping logs. What was missing was a definition of *what good looks like*. "Up" is a binary signal that hides the failure modes users actually feel; an SLO turns it into a quality bar with a time horizon and an error budget. Five family-services SLOs went in: Plex (99.5%), Minecraft (99.0%), Pi-hole DNS (99.9%), NAS reachable (99.9%), Tailscale node (99.0%). Each is implemented as a multi-window multi-burn-rate alert pair following the Google SRE Workbook §5.4 pattern (fast-burn 1h+5m, slow-burn 6h+30m), so a real outage pages within minutes while a slow degradation still surfaces before the monthly budget is exhausted.
+
+Backing the SLOs required new metric sources for places k3s can't see. `smartctl_exporter` runs on the Proxmox host directly, because the NAS VM sees QEMU virtio devices not real disks and SMART has to be collected at the hypervisor. `mc-monitor` polls the Minecraft server via server-list-ping rather than RCON, so it measures what a player's client actually does. `tailscaled --debug` exposes per-node Tailscale health on a LAN-bound port. Two in-cluster polling exporters (`pihole-exporter`, `plex-exporter`) cover the Pi-hole admin API and Plex Media Server. Backup last-success timestamps land in Prometheus via node_exporter's textfile collector: each of the five backup-shaped scripts writes an atomic `backup_last_success_timestamp_seconds` heartbeat on its success branch. Three new dashboards generated from `gen-dashboards.py`: Family Services SLO, Capacity/Backup-DR (live cadence-aware tiles, not a static markdown stub), and Logs+Network/DNS.
+
+The most interesting outcome of this phase wasn't the SLOs themselves but the day-1 false alarm they produced. The Pi-hole SLI was `up{job="pihole"}` — exporter scrape success against the admin API on :80. It paged critical for six hours while household DNS resolution was fine. The lesson, written up in [Lessons Learned](#lessons-learned), pushed the next iteration: `prometheus-blackbox-exporter` probing the actual service port (53/udp) backs the critical alert; the original exporter-scrape signal stays in place at warning severity as exporter-health monitoring. Two different failure modes, two different alerts, two different severities.
+
+**What this gave me:**
+- First-hand exposure to the multi-window multi-burn-rate alert pattern from the Google SRE Workbook, not from a blog post but from translating the maths into actual PromQL recording rules and reading the alert at 04:00 BST when it fires
+- A working understanding of what it means to choose an SLI: the difference between a metric of convenience (whatever's easy to express) and a metric of user experience, and the operator-trust cost when those diverge
+- Experience separating SLIs into matched pairs (probe + exporter, critical + warning) so each failure mode produces a distinct signal rather than collapsing into one ambiguous alert
 
 
 ---
@@ -155,6 +168,7 @@ Three gaps closed in this phase:
 | Proxmox metrics | PVE Exporter | Proxy-style scraping of Proxmox host and guest metrics via the Proxmox REST API |
 | Service exporters | pihole-exporter, plex-exporter | In-cluster exporters polling external services (Pi-hole admin API on JBDNS01, Plex on the Shield); migrated from static `additionalScrapeConfigs` to ServiceMonitor with a `job=` relabel so existing recording rules keep matching |
 | Blackbox probe | prometheus-blackbox-exporter | Real user-DNS SLI on JBDNS01:53/udp (module `dns_pihole`, `valid_rcodes: [NOERROR]`); backs critical `PiholeDnsBurnFast` separately from the exporter-scrape SLI |
+| Host-side exporters | smartctl-exporter, mc-monitor, tailscaled `/debug`, node_exporter textfile | Metrics from places k3s can't reach: SMART on the Proxmox host (the NAS VM sees virtio devices, not real disks, so SMART has to be collected at the hypervisor), Minecraft availability via server-list-ping, Tailscale node health, and backup last-success heartbeats from cron/systemd-timer scripts. Pure systemd binaries; no Helm or k8s. |
 | Dashboards | Grafana + ConfigMap sidecar | Auto-provisioned from Git-tracked ConfigMaps; JSON generated by a checked-in Python script for readable diffs |
 | Alert routing | Alertmanager -> Discord | Webhook routing to `#homelab-alerts`; Watchdog heartbeat silenced; k3s-incompatible monitors disabled |
 | Log aggregation | Loki (SingleBinary) | Centralised log storage with 7-day retention on a local-path PV; no gateway, direct push from Promtail |
@@ -326,6 +340,12 @@ Root cause: state was populated by `tofu import` on a previously-managed estate;
 Fix: declare the `startup` blocks in HCL to match live, correct the `on_boot` values; `tofu plan -detailed-exitcode` exits 0. Companion PR imports the last unmanaged guest (the k3s VM itself) via a declarative `import` block, completing the fleet (6 of 6 under Tofu).
 Lesson: a non-empty `tofu plan` on a homelab-shape estate is a defect, not a state to live with. The same plan output read on a Monday morning by a different operator is indistinguishable from a deliberate proposed change. Treat any drift between HCL and live as something to close in the same change window the live edit was made, or move the field into `lifecycle.ignore_changes` if it's genuinely off-limits to Tofu.
 
+**Promtail journal scrape silently ships zero entries when the promtail user isn't in `systemd-journal`**
+Symptom: Promtail v3.5.1 installed on a host via the canonical procedure. Service starts cleanly, no errors, `journalctl -u promtail` looks normal. Loki shows zero log lines from the host. `promtail_sent_entries_total` stays at zero indefinitely.
+Root cause: the install creates a dedicated `promtail` system user (`adduser --system --no-create-home`). The `journal` scrape stanza reads `/var/log/journal/*` via `sd_journal_open()`, which is gated on POSIX group membership: only `root` and users in the `systemd-journal` group can read system journals. The new `promtail` user isn't in that group, so every read returns no data. Crucially, the failure is silent: `sd_journal_*` returns success with zero entries, not an error. Promtail interprets that as "nothing new to ship" and idles.
+Fix: `usermod -a -G systemd-journal promtail && systemctl restart promtail`. Verification: `curl -s localhost:9080/metrics | grep promtail_sent_entries_total` should return a positive number within a minute (or however often anything writes to the journal).
+Lesson: the same silent-fail class as the textfile collector renaming labels and the missing-target alerts that always evaluate false. A pipeline that's wired correctly but reading from an empty source is indistinguishable from a healthy idle one. Add a positive-signal verification step (`promtail_sent_entries_total > 0`) to the install procedure rather than relying on the absence of errors.
+
 **node_exporter textfile collector silently renames colliding labels**
 Symptom: backup script writes `backup_last_success_timestamp_seconds{job="jbsrv01-config-backup"} $(date +%s)` to `/var/lib/node_exporter/textfile_collector/jbsrv01-config-backup.prom`. `curl localhost:9100/metrics` shows the metric. Dashboard panel `backup_last_success_timestamp_seconds{job="jbsrv01-config-backup"}` returns no data.
 Root cause: the scrape config for `node-exporter-external` already sets `job=node-exporter-external` on every series. When the textfile sample sets a colliding `job` label, Prometheus' default behaviour is to keep the scrape-config value and rename the inner label to `exported_job`. The metric is present but every PromQL query that filters on `{job="..."}` returns empty, indistinguishable from "the script never ran".
@@ -336,8 +356,10 @@ Lesson: any label a target writes that collides with a scrape-config label gets 
 
 ## What's next
 
+- Extract a focused `homelab-iac` repository from the mature `tofu/` subtree (Proxmox VM/LXC modules + cloud-init + Tailscale provisioning) as a sanitised public portfolio piece; doubles as Terraform Associate cert prep
+- Tautulli for session-level Plex metrics: the deployed `plex-exporter` only exposes library and bandwidth totals, not active sessions or transcode counts, which is what the Plex SLO panel actually needs
+- OpenTelemetry instrumentation of internal scripts (`mc-world-backup`, `nas-dropbox-mover`): Tempo + the OTel Collector are wired but no service currently emits OTLP. A small Python snippet per script would light up trace-to-logs and trace-to-metrics correlations end-to-end
 - Tofu state remote backend (S3-compatible via Minio on the NAS, or Terraform Cloud free tier) so state survives a JBVM02 rebuild
-- Kustomize overlay structure exploration: understanding the base/overlay pattern before needing it in production
 - Kubernetes NetworkPolicy resources to restrict pod-to-pod traffic within the cluster
 
 ---

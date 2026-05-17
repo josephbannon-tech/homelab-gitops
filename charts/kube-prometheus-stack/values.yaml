@@ -350,20 +350,30 @@ kube-prometheus-stack:
                 description: "Tailscale node {{ $labels.hostname }} flapping over 6h. Often DERP relay churn or local interface state. Check journal for tailscaled and the netstack_dropped_packets metric for that node."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/tailscale-burn-rate.md"
 
-    # SMART drive health. Two drives on JBSRV01 currently report exit_status > 0
-    # (sdb Seagate ST1000VM002, sdg SK hynix SC308) — this alert will fire on
-    # next sync. Physical investigation tracked separately in project_open_defects.
+    # SMART drive health. Don't alert on smartctl_exit_status raw — it's a
+    # bitfield where bit 6 (=64) means "any historical error log entry", which
+    # fires for life on drives that had a single transient read error years
+    # ago. Instead: page on the actionable attributes directly, and let the
+    # critical SmartDriveStatusFailed catch the manufacturer-threshold flip.
     smart-disk-failures:
       groups:
         - name: smart.disk.alerts
           rules:
-            - alert: SmartDriveFailing
-              expr: smartctl_device_smartctl_exit_status > 0
+            - alert: SmartDriveAttributesBad
+              expr: smartctl_device_attribute{attribute_name=~"Reallocated_Sector_Ct|Current_Pending_Sector|Offline_Uncorrectable",attribute_value_type="raw"} > 0
               for: 10m
               labels: {severity: warning, service: storage}
               annotations:
-                summary: "SMART warning on {{ $labels.device }} ({{ $labels.model_name }}) on {{ $labels.hostname }}"
-                description: "smartctl reports exit_status > 0 for {{ $labels.device }} ({{ $labels.model_name }}). Run `smartctl -a /dev/{{ $labels.device }}` on {{ $labels.hostname }} to inspect failing attributes (reallocated sectors, read errors, pending sectors). Plan replacement before failure."
+                summary: "SMART attribute {{ $labels.attribute_name }} = {{ $value }} on {{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} raw value {{ $value }}. Any non-zero value on these attributes indicates real media wear/damage. Run `smartctl -a /dev/{{ $labels.device }}` on the host to confirm trend before planning replacement."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
+            - alert: SmartSsdLifeLeftLow
+              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 25
+              for: 1h
+              labels: {severity: warning, service: storage}
+              annotations:
+                summary: "SSD {{ $labels.device }} wear at {{ $value }}% remaining"
+                description: "SSD {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} normalized value {{ $value }} (manufacturer fail threshold typically 10). Plan replacement; once it hits 10 the critical SmartDriveStatusFailed alert will fire."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
             - alert: SmartDriveStatusFailed
               expr: smartctl_device_smart_status == 0

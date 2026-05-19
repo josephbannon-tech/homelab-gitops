@@ -368,7 +368,7 @@ kube-prometheus-stack:
                 description: "Drive {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} raw value {{ $value }}. Any non-zero value on these attributes indicates real media wear/damage. Run `smartctl -a /dev/{{ $labels.device }}` on the host to confirm trend before planning replacement."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
             - alert: SmartSsdLifeLeftLow
-              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 25
+              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 5
               for: 1h
               labels: {severity: warning, service: storage}
               annotations:

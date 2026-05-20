@@ -368,7 +368,7 @@ kube-prometheus-stack:
                 description: "Drive {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} raw value {{ $value }}. Any non-zero value on these attributes indicates real media wear/damage. Run `smartctl -a /dev/{{ $labels.device }}` on the host to confirm trend before planning replacement."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
             - alert: SmartSsdLifeLeftLow
-              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 25
+              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 5
               for: 1h
               labels: {severity: warning, service: storage}
               annotations:
@@ -383,6 +383,66 @@ kube-prometheus-stack:
                 summary: "SMART status FAILED on {{ $labels.device }} ({{ $labels.model_name }}) — drive is dying"
                 description: "smartctl reports SMART status FAILED on {{ $labels.device }}. The drive has crossed a manufacturer threshold and is expected to fail soon. Replace immediately if it holds data."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-failed.md"
+
+    # Filesystem space across the fleet. No instance filter — these evaluate
+    # per series, so every node_exporter target (all 6 hosts) is covered with
+    # no per-host config. Added 2026-05-20 after JBVM02 silently filled its
+    # root disk to 98% with no alert in place.
+    node-disk-space:
+      groups:
+        - name: node.disk.alerts
+          rules:
+            - alert: NodeFilesystemLow
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 15
+              for: 1h
+              labels: {severity: warning, service: storage}
+              annotations:
+                summary: "{{ $labels.instance }} {{ $labels.mountpoint }} at {{ $value | printf \"%.0f\" }}% free"
+                description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 15% free. Run `df -h` on the host; clear caches/logs or extend the LV before it fills."
+            - alert: NodeFilesystemCritical
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 5
+              for: 15m
+              labels: {severity: critical, service: storage}
+              annotations:
+                summary: "{{ $labels.instance }} {{ $labels.mountpoint }} critically full ({{ $value | printf \"%.0f\" }}% free)"
+                description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 5% free — writes will start failing. Free space immediately."
+
+    # Host resource pressure across the fleet: memory utilisation plus kernel
+    # PSI (Pressure Stall Information) for memory and I/O throttling, exposed
+    # by node_exporter's pressure collector. PSI may be absent inside the
+    # JBDNS01 LXC — those alerts simply won't fire there.
+    node-resource-pressure:
+      groups:
+        - name: node.resource.alerts
+          rules:
+            - alert: NodeMemoryHigh
+              expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+              for: 15m
+              labels: {severity: warning, service: compute}
+              annotations:
+                summary: "{{ $labels.instance }} memory at {{ $value | printf \"%.0f\" }}% used"
+                description: "{{ $labels.instance }} has had under 10% memory available for >15m. Check for a leaking process or an undersized VM (`free -h`, `ps aux --sort=-%mem`)."
+            - alert: NodeMemoryThrottled
+              expr: rate(node_pressure_memory_stalled_seconds_total[5m]) > 0.10
+              for: 15m
+              labels: {severity: warning, service: compute}
+              annotations:
+                summary: "{{ $labels.instance }} memory-throttled {{ $value | humanizePercentage }} of the time"
+                description: "All tasks on {{ $labels.instance }} were stalled waiting on memory for over 10% of wall-clock time (PSI full-stall, 5m rate). The host is memory-throttled — check for swap thrashing or a runaway allocation."
+            - alert: NodeIOThrottled
+              expr: rate(node_pressure_io_stalled_seconds_total[5m]) > 0.10
+              for: 15m
+              labels: {severity: warning, service: storage}
+              annotations:
+                summary: "{{ $labels.instance }} I/O-throttled {{ $value | humanizePercentage }} of the time"
+                description: "All tasks on {{ $labels.instance }} were stalled waiting on disk I/O for over 10% of wall-clock time (PSI full-stall, 5m rate). Check `iostat -x` for a saturated device."
+            - alert: Jbvm02MaintenanceStale
+              expr: time() - maintenance_last_success_timestamp_seconds{name="jbvm02-maintenance"} > 691200
+              for: 1h
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "JBVM02 weekly disk-hygiene maintenance has not run in over 8 days"
+                description: "The jbvm02-maintenance.timer success heartbeat is stale (>8d). The weekly disk sweep may have stopped — check `systemctl status jbvm02-maintenance.timer` on JBVM02."
 
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).

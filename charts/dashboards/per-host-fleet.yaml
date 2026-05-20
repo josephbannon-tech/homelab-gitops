@@ -50,13 +50,148 @@ data:
       },
       "panels": [
         {
+          "id": 900,
+          "title": "Active alerts \u2014 this dashboard's scope",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 901,
+          "title": "Firing now",
+          "type": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 24,
+            "h": 5
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "Severity",
+                "desc": false
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "ALERTS{alertstate=\"firing\", hostname=~\"$hostname\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "Value": true,
+                  "alertstate": true,
+                  "namespace": true,
+                  "prometheus": true,
+                  "job": true,
+                  "endpoint": true,
+                  "container": true,
+                  "pod": true,
+                  "hostname": true,
+                  "device": true,
+                  "mountpoint": true,
+                  "attribute_name": true,
+                  "attribute_value_type": true,
+                  "fstype": true,
+                  "zpool": true,
+                  "model_name": true,
+                  "state": true,
+                  "name": true
+                },
+                "renameByName": {
+                  "alertname": "Alert",
+                  "severity": "Severity",
+                  "service": "Service",
+                  "instance": "Host"
+                },
+                "indexByName": {
+                  "alertname": 0,
+                  "severity": 1,
+                  "service": 2,
+                  "instance": 3
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "critical": {
+                            "color": "red",
+                            "text": "CRITICAL",
+                            "index": 0
+                          },
+                          "warning": {
+                            "color": "orange",
+                            "text": "WARNING",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
           "id": 1,
           "title": "Snapshot",
           "type": "row",
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 0,
+            "y": 7,
             "w": 24,
             "h": 1
           },
@@ -72,7 +207,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 1,
+            "y": 8,
             "w": 5,
             "h": 4
           },
@@ -129,7 +264,7 @@ data:
           },
           "gridPos": {
             "x": 5,
-            "y": 1,
+            "y": 8,
             "w": 5,
             "h": 4
           },
@@ -186,7 +321,7 @@ data:
           },
           "gridPos": {
             "x": 10,
-            "y": 1,
+            "y": 8,
             "w": 5,
             "h": 4
           },
@@ -251,7 +386,7 @@ data:
           },
           "gridPos": {
             "x": 15,
-            "y": 1,
+            "y": 8,
             "w": 5,
             "h": 4
           },
@@ -316,7 +451,7 @@ data:
           },
           "gridPos": {
             "x": 20,
-            "y": 1,
+            "y": 8,
             "w": 4,
             "h": 4
           },
@@ -378,7 +513,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 5,
+            "y": 12,
             "w": 24,
             "h": 1
           },
@@ -394,7 +529,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 6,
+            "y": 13,
             "w": 12,
             "h": 8
           },
@@ -449,7 +584,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 6,
+            "y": 13,
             "w": 12,
             "h": 8
           },
@@ -519,7 +654,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 14,
+            "y": 21,
             "w": 24,
             "h": 1
           },
@@ -535,7 +670,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 15,
+            "y": 22,
             "w": 12,
             "h": 8
           },
@@ -599,7 +734,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 15,
+            "y": 22,
             "w": 12,
             "h": 8
           },
@@ -663,7 +798,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 23,
+            "y": 30,
             "w": 24,
             "h": 6
           },
@@ -722,7 +857,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 29,
+            "y": 36,
             "w": 24,
             "h": 1
           },
@@ -738,7 +873,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 30,
+            "y": 37,
             "w": 12,
             "h": 8
           },
@@ -794,7 +929,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 30,
+            "y": 37,
             "w": 12,
             "h": 8
           },
@@ -860,7 +995,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 38,
+            "y": 45,
             "w": 24,
             "h": 6
           },

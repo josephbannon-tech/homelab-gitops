@@ -470,12 +470,14 @@ kube-prometheus-stack:
     # root disk to 98% with no alert in place.
     #
     # fstype excludes network/remote filesystems (cifs, nfs, nfs4, fuse.*,
-    # smb3, 9p): a client host must not page on a server's free space, and
-    # client-side SMB/NFS statfs is transiently bogus during session
-    # reconnects. The NAS pool's own capacity is still alerted — JBNAS01's
-    # node_exporter reports JBNAS_MEDIA as a local filesystem on JBNAS01.
-    # Added 2026-05-20 after JBVM01's CIFS /mnt/nas-media phantom-fired both
-    # rules (incident 2026-05-20-jbvm01-phantom-nas-media-fs-alert.md).
+    # smb3, 9p): a client host must not page on a server's free space, and a
+    # network mount can surface server-side constructs (a per-user quota, a
+    # staging buffer) that are not durable local capacity. The NAS pool's own
+    # capacity is still alerted — JBNAS01's node_exporter reports JBNAS_MEDIA
+    # as a local filesystem on JBNAS01.
+    # Added 2026-05-20 after JBVM01's CIFS /mnt/nas-media fired both rules on
+    # the NAS-side inbox quota during a routine media drop (incident
+    # 2026-05-20-jbvm01-nas-media-inbox-quota-alert.md).
     node-disk-space:
       groups:
         - name: node.disk.alerts

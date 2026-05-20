@@ -1,6 +1,10 @@
 kube-prometheus-stack:
   # Grafana — exposed on NodePort 30300
   grafana:
+    # The chart bundles ~24 upstream Grafana dashboards (node-exporter, k8s
+    # views). We provision our own from charts/dashboards/gen-dashboards.py;
+    # the bundled set is redundant clutter in the dashboard list.
+    defaultDashboardsEnabled: false
     service:
       type: NodePort
       nodePort: 30300
@@ -177,6 +181,30 @@ kube-prometheus-stack:
     enabled: false
   kubeProxy:
     enabled: false
+
+  # Built-in alert rules: the chart ships 148. We keep ~69 — the groups that
+  # match this single-node estate's signal model (apps, storage, and the
+  # monitoring stack itself) and ALL recording-rule groups (dashboards depend
+  # on them, left at their default true). The 11 groups below are dropped:
+  # k3s embeds the control-plane components (kube{Proxy,Scheduler,Controller
+  # Manager} produce false "down" noise), it uses kine/sqlite not etcd, the
+  # apiserver-SLO and multi-node kubelet/system alerts don't fit a one-node
+  # cluster, there are no resource quotas, and nodeExporterAlerting includes
+  # NodeMemoryHighUtilization (the MemAvailable false-positive already removed)
+  # and duplicates the curated NodeFilesystem* rules below.
+  defaultRules:
+    rules:
+      etcd: false
+      kubeApiserverSlos: false
+      kubeControllerManager: false
+      kubeProxy: false
+      kubeSchedulerAlerting: false
+      kubelet: false
+      kubernetesResources: false
+      kubernetesSystem: false
+      network: false
+      nodeExporterAlerting: false
+      windows: false
 
   # Family-services SLO rules (recording + multi-window multi-burn-rate alerts).
   # Targets:
@@ -609,3 +637,24 @@ kube-prometheus-stack:
                 impact: "Journal entries from {{ $labels.instance }} are no longer reaching Loki — that host's logs go dark."
                 action: "Check the promtail pod on {{ $labels.instance }} and its position file under /run/promtail/."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/promtail-down.md"
+
+    # Clock sync. node_timex_sync_status == 1 means the kernel clock is
+    # disciplined by NTP; 0 means it is free-running and drifting. Replaces the
+    # upstream NodeClockNotSynchronising alert lost when nodeExporterAlerting
+    # was culled. min_over_time guards against a single transient scrape.
+    node-clock-sync:
+      groups:
+        - name: node.clock.alerts
+          rules:
+            - alert: NodeClockSkew
+              expr: min_over_time(node_timex_sync_status[5m]) == 0
+              for: 10m
+              labels: {severity: warning, service: compute}
+              annotations:
+                summary: "{{ $labels.instance }} clock is not synchronised to NTP"
+                host: "{{ $labels.instance }}"
+                value: "node_timex_sync_status = 0 (clock free-running)"
+                threshold: "sync_status == 0, sustained 10m"
+                impact: "The host clock on {{ $labels.instance }} is drifting. Skewed timestamps corrupt log correlation, TLS validation, and backup-age tiles."
+                action: "Check `timedatectl status` and the chrony/systemd-timesyncd service on {{ $labels.instance }}."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-clock-skew.md"

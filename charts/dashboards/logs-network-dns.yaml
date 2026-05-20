@@ -192,7 +192,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "",
+          "description": "Total journal lines/sec per host from the systemd journal. A sudden spike flags a chatty or failing unit.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -249,7 +249,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "",
+          "description": "Journal lines matching 'error' (case-insensitive) per host. Should sit near zero; a rising line means a host is logging errors.",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -306,7 +306,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "",
+          "description": "Journal lines matching 'warn' (case-insensitive) per host. Useful as an early signal before warnings escalate to errors.",
           "gridPos": {
             "x": 0,
             "y": 16,
@@ -363,7 +363,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "",
+          "description": "The 10 systemd units producing the most log lines right now. Identifies which unit is responsible for a log-volume spike.",
           "gridPos": {
             "x": 12,
             "y": 16,
@@ -434,7 +434,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "",
+          "description": "Count of 'Failed password' lines from sshd over the last 24h, per host. A sustained climb indicates a brute-force attempt.",
           "gridPos": {
             "x": 0,
             "y": 25,
@@ -505,7 +505,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Total DNS queries Pi-hole has handled today. Informational; resets at midnight.",
           "gridPos": {
             "x": 0,
             "y": 34,
@@ -563,7 +563,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "DNS queries blocked as ads/trackers today. Informational; resets at midnight.",
           "gridPos": {
             "x": 6,
             "y": 34,
@@ -621,7 +621,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Share of today's queries blocked. Informational, no threshold; typically 10-25% for this estate.",
           "gridPos": {
             "x": 12,
             "y": 34,
@@ -679,7 +679,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Number of domains on Pi-hole's active blocklists. Informational; a drop to zero means a gravity update failed.",
           "gridPos": {
             "x": 18,
             "y": 34,
@@ -737,7 +737,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "DNS query rate Pi-hole is serving (5m rate). A drop to zero while clients are active points to a DNS outage.",
           "gridPos": {
             "x": 0,
             "y": 38,
@@ -793,7 +793,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Queries answered from Pi-hole's cache vs forwarded upstream (1h rate). A high cache share means fast local resolution.",
           "gridPos": {
             "x": 12,
             "y": 38,
@@ -866,13 +866,13 @@ data:
         },
         {
           "id": 16,
-          "title": "DNS probe status",
+          "title": "DNS probe",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Result of a real UDP/53 DNS lookup against 192.168.0.205. UP = the LAN can resolve names \u2014 the actual user-facing signal, independent of the pihole-exporter scrape.",
           "gridPos": {
             "x": 0,
             "y": 46,
@@ -896,7 +896,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -927,62 +943,6 @@ data:
           ]
         },
         {
-          "id": 17,
-          "title": "Probe success (1 = OK, 0 = fail)",
-          "type": "timeseries",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "gridPos": {
-            "x": 6,
-            "y": 46,
-            "w": 9,
-            "h": 4
-          },
-          "options": {
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            },
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "max",
-                "mean",
-                "lastNotNull"
-              ]
-            },
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "gradientMode": "opacity"
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "probe_success{module=\"dns_pihole\"}",
-              "legendFormat": "probe",
-              "refId": "A"
-            }
-          ]
-        },
-        {
           "id": 18,
           "title": "DNS lookup time (s)",
           "type": "timeseries",
@@ -990,11 +950,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Round-trip time of the blackbox DNS probe. Rising lookup time means Pi-hole is slow to answer even when the probe still succeeds.",
           "gridPos": {
-            "x": 15,
+            "x": 6,
             "y": 46,
-            "w": 9,
+            "w": 18,
             "h": 4
           },
           "options": {
@@ -1060,7 +1020,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Inbound network throughput per host (5m rate), excluding loopback and virtual interfaces.",
           "gridPos": {
             "x": 0,
             "y": 51,
@@ -1116,7 +1076,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Outbound network throughput per host (5m rate), excluding loopback and virtual interfaces.",
           "gridPos": {
             "x": 12,
             "y": 51,
@@ -1186,7 +1146,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of Tailscale nodes currently reporting up. Informational; a drop means a node left the mesh.",
           "gridPos": {
             "x": 0,
             "y": 60,
@@ -1244,7 +1204,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Cumulative Tailscale netstack packet drops since each node booted. This is a counter, not a rate \u2014 it only grows; watch the trend. Thresholds 1k/100k are rough.",
           "gridPos": {
             "x": 6,
             "y": 60,
@@ -1310,7 +1270,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Tailscale packet-forwarding errors per second. Sustained non-zero values point to a subnet-router routing problem.",
           "gridPos": {
             "x": 12,
             "y": 60,

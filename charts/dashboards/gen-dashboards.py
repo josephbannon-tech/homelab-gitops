@@ -867,75 +867,121 @@ logs_panels = [
     row(1, "Loki — Log Activity (last 5m)", 0),
     loki_timeseries(2, "Log rate per host (lines/sec)",
                [t_loki(LOG_RATE_BY_HOST, "{{hostname}}")],
-               "ops", 0, 1, 12, 8),
+               "ops", 0, 1, 12, 8,
+               description="Total journal lines/sec per host from the "
+                           "systemd journal. A sudden spike flags a chatty "
+                           "or failing unit."),
     loki_timeseries(3, "Error rate per host (lines/sec)",
                [t_loki(ERR_RATE_BY_HOST, "{{hostname}}")],
-               "ops", 12, 1, 12, 8),
+               "ops", 12, 1, 12, 8,
+               description="Journal lines matching 'error' (case-insensitive) "
+                           "per host. Should sit near zero; a rising line "
+                           "means a host is logging errors."),
     loki_timeseries(4, "Warning rate per host (lines/sec)",
                [t_loki(WARN_RATE_BY_HOST, "{{hostname}}")],
-               "ops", 0, 9, 12, 8),
+               "ops", 0, 9, 12, 8,
+               description="Journal lines matching 'warn' (case-insensitive) "
+                           "per host. Useful as an early signal before "
+                           "warnings escalate to errors."),
     loki_timeseries(5, "Top 10 noisy systemd units (lines/sec)",
                [t_loki(TOP_NOISY_UNITS, "{{hostname}} / {{unit}}")],
-               "ops", 12, 9, 12, 8),
+               "ops", 12, 9, 12, 8,
+               description="The 10 systemd units producing the most log lines "
+                           "right now. Identifies which unit is responsible "
+                           "for a log-volume spike."),
 
     row(6, "SSH auth failures (last 24h, journal)", 17),
     loki_timeseries(7, "Failed SSH password attempts",
                [t_loki(SSHD_FAILS, "{{hostname}}")],
-               "short", 0, 18, 24, 8),
+               "short", 0, 18, 24, 8,
+               description="Count of 'Failed password' lines from sshd over "
+                           "the last 24h, per host. A sustained climb "
+                           "indicates a brute-force attempt."),
 
     row(8, "Pi-hole DNS — Live", 26),
     stat(9,  "Queries (today)", "sum(pihole_dns_queries_today)",
-         "short", 0, 27, 6, 4, thresholds=GREEN_ONLY),
+         "short", 0, 27, 6, 4, thresholds=GREEN_ONLY,
+         description="Total DNS queries Pi-hole has handled today. "
+                     "Informational; resets at midnight."),
     stat(10, "Blocked (today)", "sum(pihole_ads_blocked_today)",
-         "short", 6, 27, 6, 4, thresholds=GREEN_ONLY),
+         "short", 6, 27, 6, 4, thresholds=GREEN_ONLY,
+         description="DNS queries blocked as ads/trackers today. "
+                     "Informational; resets at midnight."),
     stat(11, "Blocked %", "avg(pihole_ads_percentage_today)",
-         "percent", 12, 27, 6, 4, thresholds=NO_THRESH),
+         "percent", 12, 27, 6, 4, thresholds=NO_THRESH,
+         description="Share of today's queries blocked. Informational, no "
+                     "threshold; typically 10-25% for this estate."),
     stat(12, "Domains in blocklist", "max(pihole_domains_being_blocked)",
-         "short", 18, 27, 6, 4, thresholds=NO_THRESH),
+         "short", 18, 27, 6, 4, thresholds=NO_THRESH,
+         description="Number of domains on Pi-hole's active blocklists. "
+                     "Informational; a drop to zero means a gravity update "
+                     "failed."),
     timeseries(13, "DNS queries/sec (5m rate)",
                [t("rate(pihole_dns_queries_all_types[5m])", "queries/s")],
-               "ops", 0, 31, 12, 7),
+               "ops", 0, 31, 12, 7,
+               description="DNS query rate Pi-hole is serving (5m rate). A "
+                           "drop to zero while clients are active points to "
+                           "a DNS outage."),
     timeseries(14, "Cache vs forwarded (1h rate)",
                [t("rate(pihole_queries_cached[1h])", "cached"),
                 t("rate(pihole_queries_forwarded[1h])", "forwarded", "B")],
-               "ops", 12, 31, 12, 7),
+               "ops", 12, 31, 12, 7,
+               description="Queries answered from Pi-hole's cache vs forwarded "
+                           "upstream (1h rate). A high cache share means fast "
+                           "local resolution."),
 
     # Real user-facing DNS SLI — independent of pihole-exporter scrape.
     # probe_success is 0/1 (UDP/53 lookup of health.check.local).
     row(15, "Pi-hole DNS — Blackbox probe (real user-facing SLI)", 38),
-    stat(16, "DNS probe status",
+    stat(16, "DNS probe",
          'probe_success{module="dns_pihole"}',
-         "short", 0, 39, 6, 4, thresholds=ZERO_RED_ONE_GREEN),
-    timeseries(17, "Probe success (1 = OK, 0 = fail)",
-               [t('probe_success{module="dns_pihole"}', "probe")],
-               "short", 6, 39, 9, 4),
+         "short", 0, 39, 6, 4, thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
+         description="Result of a real UDP/53 DNS lookup against "
+                     "192.168.0.205. UP = the LAN can resolve names — the "
+                     "actual user-facing signal, independent of the "
+                     "pihole-exporter scrape."),
     timeseries(18, "DNS lookup time (s)",
                [t('probe_dns_lookup_time_seconds{module="dns_pihole"}', "lookup")],
-               "s", 15, 39, 9, 4),
+               "s", 6, 39, 18, 4,
+               description="Round-trip time of the blackbox DNS probe. Rising "
+                           "lookup time means Pi-hole is slow to answer even "
+                           "when the probe still succeeds."),
 
     row(19, "Network — Per-Host Throughput", 43),
     timeseries(20, "Receive (Bps)",
                [t('sum by (hostname) (rate(node_network_receive_bytes_total{device!~"lo|veth.*|tailscale.*"}[5m]))',
                   "{{hostname}}")],
-               "Bps", 0, 44, 12, 8),
+               "Bps", 0, 44, 12, 8,
+               description="Inbound network throughput per host (5m rate), "
+                           "excluding loopback and virtual interfaces."),
     timeseries(21, "Transmit (Bps)",
                [t('sum by (hostname) (rate(node_network_transmit_bytes_total{device!~"lo|veth.*|tailscale.*"}[5m]))',
                   "{{hostname}}")],
-               "Bps", 12, 44, 12, 8),
+               "Bps", 12, 44, 12, 8,
+               description="Outbound network throughput per host (5m rate), "
+                           "excluding loopback and virtual interfaces."),
 
     row(22, "Tailscale nodes (debug metrics)", 52),
     stat(23, "Nodes up", 'count(up{job="tailscale-nodes"} == 1)',
-         "short", 0, 53, 6, 4, thresholds=GREEN_ONLY),
+         "short", 0, 53, 6, 4, thresholds=GREEN_ONLY,
+         description="Count of Tailscale nodes currently reporting up. "
+                     "Informational; a drop means a node left the mesh."),
     stat(24, "Total dropped packets (since reboot)",
          'sum(netstack_dropped_packets)', "short", 6, 53, 6, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "green", "value": None},
                                {"color": "yellow", "value": 1000},
-                               {"color": "red", "value": 100000}]}),
+                               {"color": "red", "value": 100000}]},
+         description="Cumulative Tailscale netstack packet drops since each "
+                     "node booted. This is a counter, not a rate — it only "
+                     "grows; watch the trend. Thresholds 1k/100k are rough."),
     timeseries(25, "Packet forward errors / sec",
                [t('sum by (hostname) (rate(netstack_ip_forward_errors[5m]))',
                   "{{hostname}}")],
-               "ops", 12, 53, 12, 4),
+               "ops", 12, 53, 12, 4,
+               description="Tailscale packet-forwarding errors per second. "
+                           "Sustained non-zero values point to a subnet-"
+                           "router routing problem."),
 ]
 
 # ── Dashboard 6: Per-Host Fleet Drill-Down ───────────────────────────────────

@@ -935,7 +935,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "probe_success{module=\"dns_pihole\"}",
+              "expr": "probe_success{job=\"blackbox-dns-pihole\"}",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -992,7 +992,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "probe_dns_lookup_time_seconds{module=\"dns_pihole\"}",
+              "expr": "probe_dns_lookup_time_seconds{job=\"blackbox-dns-pihole\"}",
               "legendFormat": "lookup",
               "refId": "A"
             }

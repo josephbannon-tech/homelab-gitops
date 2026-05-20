@@ -1,7 +1,7 @@
 prometheus-blackbox-exporter:
   # Modules: how blackbox probes a target. The Probe CRD in
   # servicemonitor.yaml drives the dns_pihole module against
-  # 192.168.0.205:53/udp to produce probe_success{module="dns_pihole"},
+  # 192.168.0.205:53/udp to produce probe_success{job="blackbox-dns-pihole"},
   # which is the SLI behind PiholeDnsBurnFast.
   config:
     modules:
@@ -11,7 +11,11 @@ prometheus-blackbox-exporter:
         dns:
           transport_protocol: udp
           preferred_ip_protocol: ip4
-          query_name: health.check.local
+          # Resolve a real public domain — this exercises the full path
+          # (pihole-FTL + upstream forwarding). The earlier health.check.local
+          # had no DNS record, so Pi-hole returned NXDOMAIN and the probe
+          # failed permanently, making the SLI read 0%.
+          query_name: google.com
           query_type: A
           valid_rcodes: [NOERROR]
 

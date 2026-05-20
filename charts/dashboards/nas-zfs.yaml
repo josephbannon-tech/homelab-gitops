@@ -480,13 +480,13 @@ data:
         },
         {
           "id": 7,
-          "title": "Data pool capacity used %",
+          "title": "Data dataset usage %",
           "type": "bargauge",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Percentage full of each data pool (JBNAS_SSD, JBNAS_MEDIA). Yellow at 70%, red at 90% \u2014 a full ZFS pool degrades write performance and blocks snapshots. boot-pool is excluded.",
+          "description": "Space used by the data-holding ZFS datasets (JBNAS_SSD/data, JBNAS_MEDIA/plex) as a percentage of used + pool-free. Yellow 70%, red 90% \u2014 a near-full pool degrades ZFS write performance.",
           "gridPos": {
             "x": 0,
             "y": 13,
@@ -535,8 +535,8 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"} / node_filesystem_size_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"})",
-              "legendFormat": "{{device}}",
+              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",mountpoint=~\"/mnt/JBNAS_SSD/data|/mnt/JBNAS_MEDIA/plex\"} / node_filesystem_size_bytes{fstype=\"zfs\",mountpoint=~\"/mnt/JBNAS_SSD/data|/mnt/JBNAS_MEDIA/plex\"})",
+              "legendFormat": "{{mountpoint}}",
               "refId": "A"
             }
           ]

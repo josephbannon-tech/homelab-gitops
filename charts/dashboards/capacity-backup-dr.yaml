@@ -192,7 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Free space remaining as a percentage of each filesystem, all hosts. Bargauge thresholds are inverted from fill: low free % is red. Below 10% free needs action.",
+          "description": "Free space remaining as a percentage of each filesystem, all hosts. Thresholds are inverted from fill: red below 15% free, green above 30%.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -216,19 +216,19 @@ data:
               "max": 100,
               "mappings": [],
               "thresholds": {
-                "mode": "percentage",
+                "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": null
                   },
                   {
                     "color": "yellow",
-                    "value": 70
+                    "value": 15
                   },
                   {
-                    "color": "red",
-                    "value": 90
+                    "color": "green",
+                    "value": 30
                   }
                 ]
               }
@@ -269,7 +269,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Linear projection of days until each filesystem fills, from the last 7d trend. A filesystem that is stable or shrinking has no series here \u2014 an absent bar is good, not an error.",
+          "description": "Linear projection of days until each filesystem fills, from the last 7d trend. A filesystem that is stable or shrinking has no series here \u2014 an absent bar is good, not an error. Red below 7 days.",
           "gridPos": {
             "x": 0,
             "y": 19,
@@ -293,19 +293,19 @@ data:
               "max": 180,
               "mappings": [],
               "thresholds": {
-                "mode": "percentage",
+                "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": null
                   },
                   {
                     "color": "yellow",
-                    "value": 70
+                    "value": 7
                   },
                   {
-                    "color": "red",
-                    "value": 90
+                    "color": "green",
+                    "value": 30
                   }
                 ]
               }
@@ -496,13 +496,13 @@ data:
         },
         {
           "id": 8,
-          "title": "Data pool capacity used %",
+          "title": "Data dataset usage %",
           "type": "bargauge",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Percentage full of each data pool (JBNAS_SSD, JBNAS_MEDIA). Yellow at 70%, red at 90% \u2014 a full pool is a capacity incident and degrades ZFS write performance.",
+          "description": "Space used by the data-holding ZFS datasets (JBNAS_SSD/data, JBNAS_MEDIA/plex) as a percentage of used + pool-free. Yellow 70%, red 90% \u2014 a near-full pool is a capacity incident.",
           "gridPos": {
             "x": 12,
             "y": 28,
@@ -551,8 +551,8 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"} / node_filesystem_size_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"})",
-              "legendFormat": "{{device}}",
+              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",mountpoint=~\"/mnt/JBNAS_SSD/data|/mnt/JBNAS_MEDIA/plex\"} / node_filesystem_size_bytes{fstype=\"zfs\",mountpoint=~\"/mnt/JBNAS_SSD/data|/mnt/JBNAS_MEDIA/plex\"})",
+              "legendFormat": "{{mountpoint}}",
               "refId": "A"
             }
           ]

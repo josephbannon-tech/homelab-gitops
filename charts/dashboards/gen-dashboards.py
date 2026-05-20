@@ -457,46 +457,83 @@ proxmox_panels = [
 NAS = HOSTS["nas"]
 NAS_IP = IPS["nas"]
 
+# Pool-root datasets: their fill represents the whole pool's capacity.
+ZFS_POOL_FS = 'fstype="zfs",device=~"JBNAS_SSD|JBNAS_MEDIA"'
+
 zfs_panels = [
     row(1, "ZFS Pool Health", 0),
-    stat(2, "JBNAS_SSD",   pool_state_online(NAS, "JBNAS_SSD"),
-         "short", 0, 1, 6, 4, thresholds=ZERO_RED_ONE_GREEN),
-    stat(3, "JBNAS_MEDIA", pool_state_online(NAS, "JBNAS_MEDIA"),
-         "short", 6, 1, 6, 4, thresholds=ZERO_RED_ONE_GREEN),
+    stat(2, "JBNAS_SSD pool",   pool_state_online(NAS, "JBNAS_SSD"),
+         "short", 0, 1, 6, 4, thresholds=ZERO_RED_ONE_GREEN,
+         mappings=ONLINE_DEG,
+         description="zpool health of JBNAS_SSD (mirror — SMB share + app "
+                     "data). ONLINE = healthy; DEGRADED/other = zpool reports "
+                     "a fault, investigate with `zpool status` on JBNAS01."),
+    stat(3, "JBNAS_MEDIA pool", pool_state_online(NAS, "JBNAS_MEDIA"),
+         "short", 6, 1, 6, 4, thresholds=ZERO_RED_ONE_GREEN,
+         mappings=ONLINE_DEG,
+         description="zpool health of JBNAS_MEDIA (the Plex library). This is "
+                     "a stripe pool with no parity — DEGRADED here means data "
+                     "loss is imminent, treat as a critical incident."),
     stat(4, "ARC Hit Ratio", arc_hit_ratio(NAS),
-         "percent", 12, 1, 6, 4, thresholds=ARC_RATIO_THRESH),
+         "percent", 12, 1, 6, 4, thresholds=ARC_RATIO_THRESH,
+         description="Fraction of ZFS reads served from the in-RAM ARC cache. "
+                     "Normal above 90% (green); 70-90% yellow; below 70% red "
+                     "means cache pressure and slower reads."),
     stat(5, "ARC Size", f'node_zfs_arc_size{{hostname="{NAS}"}}',
-         "bytes", 18, 1, 6, 4, thresholds=GREEN_ONLY),
+         "bytes", 18, 1, 6, 4, thresholds=GREEN_ONLY,
+         description="Current size of the ZFS ARC cache in RAM. Informational, "
+                     "no threshold; ARC grows to use spare memory and shrinks "
+                     "under memory pressure."),
 
-    row(6, "ZFS ARC Detail", 5),
-    gauge(7, "ARC Utilisation",
-          f'node_zfs_arc_size{{hostname="{NAS}"}} / '
-          f'node_zfs_arc_c_max{{hostname="{NAS}"}} * 100',
-          "percent", 0, 6, 8, 8),
-    timeseries(8, "ARC Size vs Max",
+    row(6, "ZFS Pool Capacity", 5),
+    bargauge(7, "Data pool capacity used %",
+             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_POOL_FS}}} / '
+                f'node_filesystem_size_bytes{{{ZFS_POOL_FS}}})',
+                "{{device}}")],
+             "percent", 0, 6, 24, 6,
+             description="Percentage full of each data pool (JBNAS_SSD, "
+                         "JBNAS_MEDIA). Yellow at 70%, red at 90% — a full ZFS "
+                         "pool degrades write performance and blocks "
+                         "snapshots. boot-pool is excluded."),
+
+    row(8, "ZFS ARC Detail", 12),
+    timeseries(9, "ARC Size vs Max",
                [t(f'node_zfs_arc_size{{hostname="{NAS}"}}', "ARC Used"),
                 t(f'node_zfs_arc_c_max{{hostname="{NAS}"}}', "ARC Max", "B"),
                 t(f'node_zfs_arc_c_min{{hostname="{NAS}"}}', "ARC Min", "C")],
-               "bytes", 8, 6, 16, 8),
+               "bytes", 0, 13, 24, 8,
+               description="ZFS ARC size over time against its c_max ceiling "
+                           "and c_min floor. ARC riding at c_max is healthy "
+                           "(cache fully warmed); dropping toward c_min "
+                           "indicates memory pressure on the NAS."),
 
-    row(9, "ARC Hit/Miss Rate", 14),
-    timeseries(10, "ARC Demand Hits / Misses",
+    row(10, "ARC Hit/Miss Rate", 21),
+    timeseries(11, "ARC Demand Hits / Misses",
                [t(f'rate(node_zfs_arc_demand_data_hits{{hostname="{NAS}"}}[5m])', "Data Hits"),
                 t(f'rate(node_zfs_arc_demand_data_misses{{hostname="{NAS}"}}[5m])', "Data Misses", "B"),
                 t(f'rate(node_zfs_arc_demand_metadata_hits{{hostname="{NAS}"}}[5m])', "Meta Hits", "C"),
                 t(f'rate(node_zfs_arc_demand_metadata_misses{{hostname="{NAS}"}}[5m])', "Meta Misses", "D")],
-               "ops", 0, 15, 24, 8),
+               "ops", 0, 22, 24, 8,
+               description="Per-second ARC demand hits vs misses for data and "
+                           "metadata. A rising miss rate means the working "
+                           "set no longer fits in ARC."),
 
-    row(11, "NAS Host Resources", 23),
-    timeseries(12, "NAS CPU %",
+    row(12, "NAS Host Resources", 30),
+    timeseries(13, "NAS CPU %",
                [t(f'100 - (avg by (instance) (rate(node_cpu_seconds_total{{instance="{NAS_IP}",mode="idle"}}[5m])) * 100)',
                   "CPU %")],
-               "percent", 0, 24, 12, 8),
-    timeseries(13, "NAS Memory",
+               "percent", 0, 31, 12, 8,
+               description="JBNAS01 CPU utilisation over time. Sustained high "
+                           "values during scrubs or Plex transcodes are "
+                           "expected; otherwise it should sit low."),
+    timeseries(14, "NAS Memory",
                [t(f'node_memory_MemTotal_bytes{{instance="{NAS_IP}"}} - '
                   f'node_memory_MemAvailable_bytes{{instance="{NAS_IP}"}}', "Used"),
                 t(f'node_memory_MemTotal_bytes{{instance="{NAS_IP}"}}', "Total", "B")],
-               "bytes", 12, 24, 12, 8),
+               "bytes", 12, 31, 12, 8,
+               description="JBNAS01 memory used vs total. Used tracking close "
+                           "to Total is normal — ZFS ARC claims free RAM and "
+                           "yields it on demand."),
 ]
 
 # ── Dashboard 3: Family Services SLO ─────────────────────────────────────────

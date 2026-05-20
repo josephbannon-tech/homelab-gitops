@@ -49,14 +49,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          livenessProbe:
-            httpGet:
-              path: /metrics
-              port: metrics
-            initialDelaySeconds: 30
-            periodSeconds: 60
-            timeoutSeconds: 5
-            failureThreshold: 3
+          # /metrics depends on a live Plex connection; readiness-only avoids restart-loops on Wi-Fi blips.
           readinessProbe:
             httpGet:
               path: /metrics

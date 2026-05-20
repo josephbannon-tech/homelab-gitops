@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "ZFS Pool Health",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,6 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -250,6 +254,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 8,
@@ -311,6 +316,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -376,6 +382,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 8,
@@ -430,6 +437,7 @@ data:
           "title": "ZFS ARC Detail",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -446,6 +454,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 13,
@@ -508,6 +517,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 13,
@@ -578,6 +588,7 @@ data:
           "title": "ARC Hit/Miss Rate",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -594,6 +605,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 22,
@@ -673,6 +685,7 @@ data:
           "title": "NAS Host Resources",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -689,6 +702,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 31,
@@ -744,6 +758,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 31,

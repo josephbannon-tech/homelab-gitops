@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "Filesystem Free Space (%) \u2014 across all hosts",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,6 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -248,6 +252,7 @@ data:
           "title": "Filesystem Days-to-Full (linear projection from last 7d)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 18,
@@ -264,6 +269,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 19,
@@ -323,6 +329,7 @@ data:
           "title": "ZFS Pools (NAS)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 27,
@@ -339,6 +346,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 28,
@@ -400,6 +408,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 28,
@@ -461,6 +470,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 28,
@@ -526,6 +536,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 28,
@@ -580,6 +591,7 @@ data:
           "title": "Estate Headroom \u2014 RAM & CPU per Host",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 32,
@@ -596,6 +608,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 33,
@@ -651,6 +664,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 33,
@@ -703,6 +717,7 @@ data:
           "title": "SMART \u2014 Power-on time + warnings (JBSRV01 = all physical drives)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 41,
@@ -719,6 +734,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 42,
@@ -774,6 +790,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 16,
             "y": 42,
@@ -835,6 +852,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 16,
             "y": 46,
@@ -893,6 +911,7 @@ data:
           "title": "Backup / DR Status: last successful heartbeat per job",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 50,
@@ -909,6 +928,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 51,
@@ -974,6 +994,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 4,
             "y": 51,
@@ -1039,6 +1060,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 51,
@@ -1104,6 +1126,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 51,
@@ -1169,6 +1192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 16,
             "y": 51,
@@ -1234,6 +1258,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 20,
             "y": 51,
@@ -1299,6 +1324,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 55,
@@ -1356,6 +1382,7 @@ data:
           "id": 25,
           "title": "Residual gaps",
           "type": "text",
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 55,

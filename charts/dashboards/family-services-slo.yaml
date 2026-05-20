@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "30-Day SLO Compliance (target lines: red=below, green=above)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,6 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -254,6 +258,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 8,
@@ -319,6 +324,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -384,6 +390,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 8,
@@ -446,6 +453,7 @@ data:
           "title": "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -462,6 +470,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 13,
@@ -535,6 +544,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 13,
@@ -608,6 +618,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 16,
             "y": 13,
@@ -678,6 +689,7 @@ data:
           "title": "Plex",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 20,
@@ -694,6 +706,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -755,6 +768,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 21,
@@ -812,6 +826,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 21,
@@ -864,6 +879,7 @@ data:
           "title": "Minecraft",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 25,
@@ -880,6 +896,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 26,
@@ -941,6 +958,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 4,
             "y": 26,
@@ -998,6 +1016,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 26,
@@ -1055,6 +1074,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 26,
@@ -1107,6 +1127,7 @@ data:
           "title": "Pi-hole DNS",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -1123,6 +1144,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 31,
@@ -1184,6 +1206,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 4,
             "y": 31,
@@ -1241,6 +1264,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 31,
@@ -1298,6 +1322,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 31,
@@ -1350,6 +1375,7 @@ data:
           "title": "NAS / Storage Health",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 35,
@@ -1366,6 +1392,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 36,
@@ -1427,6 +1454,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 4,
             "y": 36,
@@ -1492,6 +1520,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 8,
             "y": 36,
@@ -1557,6 +1586,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 36,
@@ -1618,6 +1648,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 36,

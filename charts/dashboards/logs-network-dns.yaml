@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "Loki \u2014 Log Activity (last 5m)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,6 +192,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -245,6 +249,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -301,6 +306,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 16,
@@ -357,6 +363,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 16,
@@ -410,6 +417,7 @@ data:
           "title": "SSH auth failures (last 24h, journal)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 24,
@@ -426,6 +434,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 25,
@@ -479,6 +488,7 @@ data:
           "title": "Pi-hole DNS \u2014 Live",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 33,
@@ -495,6 +505,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 34,
@@ -552,6 +563,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 34,
@@ -609,6 +621,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 34,
@@ -666,6 +679,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 34,
@@ -723,6 +737,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 38,
@@ -778,6 +793,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 38,
@@ -839,6 +855,7 @@ data:
           "title": "Pi-hole DNS \u2014 Blackbox probe (real user-facing SLI)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 45,
@@ -855,6 +872,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 46,
@@ -916,6 +934,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 46,
@@ -971,6 +990,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 15,
             "y": 46,
@@ -1023,6 +1043,7 @@ data:
           "title": "Network \u2014 Per-Host Throughput",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 50,
@@ -1039,6 +1060,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 51,
@@ -1094,6 +1116,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 51,
@@ -1146,6 +1169,7 @@ data:
           "title": "Tailscale nodes (debug metrics)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 59,
@@ -1162,6 +1186,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 60,
@@ -1219,6 +1244,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 60,
@@ -1284,6 +1310,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 60,

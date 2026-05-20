@@ -261,7 +261,11 @@ kube-prometheus-stack:
               labels: {severity: critical, service: plex}
               annotations:
                 summary: "Plex burning SLO budget fast (>14.4x for 1h)"
-                description: "Plex is unreachable or returning errors. At current burn, monthly budget (0.5%) exhausts in <2 days. Check Plex Server on NvidiaShield (192.168.0.202:32400) and the in-cluster plex-exporter."
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "Plex is unreachable or erroring. At this rate the 0.5% monthly error budget is gone in under 2 days; family streaming is affected."
+                action: "Check Plex Media Server on the Shield (192.168.0.202:32400) and the in-cluster plex-exporter pod."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
             - alert: PlexErrorBudgetBurnSlow
               expr: slo:plex:burn_rate:6h > 6 and slo:plex:burn_rate:30m > 6
@@ -269,7 +273,11 @@ kube-prometheus-stack:
               labels: {severity: warning, service: plex}
               annotations:
                 summary: "Plex burning SLO budget slowly (>6x for 6h)"
-                description: "Plex availability degraded over 6h. Family Plex sessions likely affected. Check NvidiaShield host, network path to Plex, and Plex transcoding load."
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "Plex availability has degraded over 6h; family sessions are likely intermittently affected."
+                action: "Check the Shield host, the network path to Plex, and Plex transcoding load."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
 
             - alert: MinecraftErrorBudgetBurnFast
@@ -278,7 +286,11 @@ kube-prometheus-stack:
               labels: {severity: critical, service: minecraft}
               annotations:
                 summary: "Minecraft burning SLO budget fast"
-                description: "Minecraft server-list-ping (mc-monitor on JBVM03:9150) is failing. Active players will be disconnected. Check the systemd unit on JBVM03 and the JVM heap/GC state."
+                host: "JBVM03 (192.168.0.204)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "The Minecraft server is not answering server-list-ping; active players are being disconnected."
+                action: "Check the minecraft systemd unit on JBVM03 and the JVM heap/GC state."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/minecraft-burn-rate.md"
             - alert: MinecraftErrorBudgetBurnSlow
               expr: slo:minecraft:burn_rate:6h > 6 and slo:minecraft:burn_rate:30m > 6
@@ -286,7 +298,11 @@ kube-prometheus-stack:
               labels: {severity: warning, service: minecraft}
               annotations:
                 summary: "Minecraft burning SLO budget slowly"
-                description: "Minecraft availability degraded over 6h. Likely a flapping server or restart loop. Investigate JBVM03 logs and ServerStarter behaviour."
+                host: "JBVM03 (192.168.0.204)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "Minecraft availability has degraded over 6h — likely a flapping server or restart loop."
+                action: "Investigate JBVM03 logs and ServerStarter restart behaviour."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/minecraft-burn-rate.md"
 
             # SLI is `up{job="pihole"}`, i.e. pihole-exporter scrape success.
@@ -304,16 +320,24 @@ kube-prometheus-stack:
               for: 2m
               labels: {severity: warning, service: pihole}
               annotations:
-                summary: "pihole-exporter scrape failing fast (SLI up{job=pihole}, not user-facing DNS)"
-                description: "pihole-exporter on JBDNS01 has burned >14.4× the 99.9% SLO budget over 1h+5m. This is the exporter→Pi-hole admin API path, not the LAN DNS path; verify with `dig @192.168.0.205 +short google.com` before assuming user impact. Check the pihole-exporter Pod (kubectl -n monitoring describe pod -l app=pihole-exporter) and pihole-FTL admin API (port 80) on the LXC."
+                summary: "pihole-exporter scrape failing fast (exporter SLI, not user-facing DNS)"
+                host: "JBDNS01 (192.168.0.205)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "The pihole-exporter to admin-API path is failing. This is NOT the LAN DNS path — household DNS may be perfectly fine."
+                action: "Verify real DNS first: `dig @192.168.0.205 +short google.com`. Then check the pihole-exporter pod and the pihole-FTL admin API (port 80) on the LXC."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
             - alert: PiholeErrorBudgetBurnSlow
               expr: slo:pihole:burn_rate:6h > 6 and slo:pihole:burn_rate:30m > 6
               for: 15m
               labels: {severity: warning, service: pihole}
               annotations:
-                summary: "pihole-exporter scrape failing slow (SLI up{job=pihole}, not user-facing DNS)"
-                description: "pihole-exporter scrape success degraded over 6h. Causes: exporter Pod restarts (check probe config), upstream Pi-hole admin API slow, or cluster scrape gaps from a Prometheus / node disruption. Verify user DNS with `dig @192.168.0.205 +short google.com` first; only escalate if that fails."
+                summary: "pihole-exporter scrape failing slowly (exporter SLI, not user-facing DNS)"
+                host: "JBDNS01 (192.168.0.205)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "pihole-exporter scrape success has degraded over 6h. Not the LAN DNS path — verify before escalating."
+                action: "Check `dig @192.168.0.205 +short google.com` first; if that works, investigate exporter pod restarts or admin-API slowness."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
 
             - alert: NasErrorBudgetBurnFast
@@ -322,7 +346,11 @@ kube-prometheus-stack:
               labels: {severity: critical, service: nas}
               annotations:
                 summary: "NAS unreachable — burning SLO budget fast"
-                description: "node-exporter on JBNAS01 (192.168.0.201) is not responding. SMB shares, Plex media, and weekly rsync backups are all affected. Open the Proxmox console on JBSRV01 and check the JBNAS01 VM (VMID 101) — possibly the unclean-shutdown pattern recurring."
+                host: "JBNAS01 (192.168.0.201)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "node-exporter on JBNAS01 is not responding. SMB shares, Plex media, and weekly rsync backups are all affected."
+                action: "Open the Proxmox console on JBSRV01 and check the JBNAS01 VM (VMID 101) — possibly the unclean-shutdown pattern recurring."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/nas-burn-rate.md"
             - alert: NasErrorBudgetBurnSlow
               expr: slo:nas:burn_rate:6h > 6 and slo:nas:burn_rate:30m > 6
@@ -330,7 +358,11 @@ kube-prometheus-stack:
               labels: {severity: warning, service: nas}
               annotations:
                 summary: "NAS reachability degraded over 6h"
-                description: "Intermittent NAS scrape failures over 6h. Check network path JBSRV01<->JBNAS01 and TrueNAS dashboard for ZFS pool errors or panic logs."
+                host: "JBNAS01 (192.168.0.201)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "Intermittent NAS scrape failures over 6h; SMB and backup reliability are at risk."
+                action: "Check the JBSRV01 to JBNAS01 network path and the TrueNAS dashboard for ZFS pool errors or panic logs."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/nas-burn-rate.md"
 
             - alert: TailscaleNodeBurnFast
@@ -339,15 +371,23 @@ kube-prometheus-stack:
               labels: {severity: critical, service: tailscale}
               annotations:
                 summary: "Tailscale node {{ $labels.hostname }} burning SLO budget fast"
-                description: "tailscaled --debug metrics endpoint is not responding on {{ $labels.hostname }}. Remote access to that host (and any subnet routes it advertises) is impaired. Check tailscaled service on the host and the Tailscale admin console."
+                host: "{{ $labels.hostname }}"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "tailscaled --debug metrics on {{ $labels.hostname }} are not responding; remote access and any subnet routes it advertises are impaired."
+                action: "Check the tailscaled service on {{ $labels.hostname }} and the Tailscale admin console."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/tailscale-burn-rate.md"
             - alert: TailscaleNodeBurnSlow
               expr: slo:tailscale:burn_rate:6h > 6 and slo:tailscale:burn_rate:30m > 6
               for: 15m
               labels: {severity: warning, service: tailscale}
               annotations:
-                summary: "Tailscale node {{ $labels.hostname }} burn slow (>6x for 6h)"
-                description: "Tailscale node {{ $labels.hostname }} flapping over 6h. Often DERP relay churn or local interface state. Check journal for tailscaled and the netstack_dropped_packets metric for that node."
+                summary: "Tailscale node {{ $labels.hostname }} burning SLO budget slowly (>6x for 6h)"
+                host: "{{ $labels.hostname }}"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "Tailscale node {{ $labels.hostname }} has been flapping over 6h — often DERP relay churn or local interface state."
+                action: "Check the tailscaled journal and the netstack_dropped_packets metric for {{ $labels.hostname }}."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/tailscale-burn-rate.md"
 
     # SMART drive health. Don't alert on smartctl_exit_status raw — it's a
@@ -365,15 +405,23 @@ kube-prometheus-stack:
               labels: {severity: warning, service: storage}
               annotations:
                 summary: "SMART attribute {{ $labels.attribute_name }} = {{ $value }} on {{ $labels.device }}"
-                description: "Drive {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} raw value {{ $value }}. Any non-zero value on these attributes indicates real media wear/damage. Run `smartctl -a /dev/{{ $labels.device }}` on the host to confirm trend before planning replacement."
+                host: "JBSRV01 (192.168.0.200)"
+                value: "{{ $labels.attribute_name }} raw = {{ $value }}"
+                threshold: "any non-zero raw value, sustained 10m"
+                impact: "Drive {{ $labels.device }} ({{ $labels.model_name }}) shows real media wear or damage. Left unattended this trends toward drive failure and data loss."
+                action: "Run `smartctl -a /dev/{{ $labels.device }}` on JBSRV01 to confirm the trend before planning replacement."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
             - alert: SmartSsdLifeLeftLow
               expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 5
               for: 1h
               labels: {severity: warning, service: storage}
               annotations:
-                summary: "SSD {{ $labels.device }} wear at {{ $value }}% remaining"
-                description: "SSD {{ $labels.device }} ({{ $labels.model_name }}) reports {{ $labels.attribute_name }} normalized value {{ $value }} (manufacturer fail threshold typically 10). Plan replacement; once it hits 10 the critical SmartDriveStatusFailed alert will fire."
+                summary: "SSD {{ $labels.device }} wear at {{ $value }}% life remaining"
+                host: "JBSRV01 (192.168.0.200)"
+                value: "{{ $value }}% life remaining"
+                threshold: "below 5% life remaining, sustained 1h"
+                impact: "SSD {{ $labels.device }} ({{ $labels.model_name }}) is near end of life. Once it crosses the manufacturer threshold the critical SmartDriveStatusFailed alert fires."
+                action: "Plan replacement of {{ $labels.device }} on JBSRV01; identify which pool or VM uses it first."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-warning.md"
             - alert: SmartDriveStatusFailed
               expr: smartctl_device_smart_status == 0
@@ -381,7 +429,11 @@ kube-prometheus-stack:
               labels: {severity: critical, service: storage}
               annotations:
                 summary: "SMART status FAILED on {{ $labels.device }} ({{ $labels.model_name }}) — drive is dying"
-                description: "smartctl reports SMART status FAILED on {{ $labels.device }}. The drive has crossed a manufacturer threshold and is expected to fail soon. Replace immediately if it holds data."
+                host: "JBSRV01 (192.168.0.200)"
+                value: "SMART overall-health = FAILED"
+                threshold: "smart_status reports FAILED, sustained 5m"
+                impact: "Drive {{ $labels.device }} has crossed a manufacturer threshold and is expected to fail soon. Data on it is at risk."
+                action: "Replace {{ $labels.device }} immediately if it holds data; check which pool or VM uses it first."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/smart-drive-failed.md"
 
     # Filesystem space across the fleet. No instance filter — these evaluate
@@ -398,14 +450,24 @@ kube-prometheus-stack:
               labels: {severity: warning, service: storage}
               annotations:
                 summary: "{{ $labels.instance }} {{ $labels.mountpoint }} at {{ $value | printf \"%.0f\" }}% free"
-                description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 15% free. Run `df -h` on the host; clear caches/logs or extend the LV before it fills."
+                host: "{{ $labels.instance }}"
+                value: "{{ $value | printf \"%.1f\" }}% free on {{ $labels.mountpoint }}"
+                threshold: "below 15% free, sustained 1h"
+                impact: "Filesystem {{ $labels.mountpoint }} is trending toward full. If it fills, writes fail and services on the host can crash."
+                action: "Run `df -h` on {{ $labels.instance }}; clear caches and logs or extend the LV."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-filesystem.md"
             - alert: NodeFilesystemCritical
               expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 5
               for: 15m
               labels: {severity: critical, service: storage}
               annotations:
                 summary: "{{ $labels.instance }} {{ $labels.mountpoint }} critically full ({{ $value | printf \"%.0f\" }}% free)"
-                description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 5% free — writes will start failing. Free space immediately."
+                host: "{{ $labels.instance }}"
+                value: "{{ $value | printf \"%.1f\" }}% free on {{ $labels.mountpoint }}"
+                threshold: "below 5% free, sustained 15m"
+                impact: "Filesystem {{ $labels.mountpoint }} is nearly full — writes will start failing and services may crash on the next disk write."
+                action: "Free space now: `df -h {{ $labels.mountpoint }}` on {{ $labels.instance }}, clear caches, or extend the LV."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-filesystem.md"
 
     # Host resource pressure across the fleet, measured by kernel PSI (Pressure
     # Stall Information) — the fraction of wall-clock time tasks spend stalled
@@ -425,21 +487,36 @@ kube-prometheus-stack:
               labels: {severity: warning, service: compute}
               annotations:
                 summary: "{{ $labels.instance }} memory-throttled {{ $value | humanizePercentage }} of the time"
-                description: "All tasks on {{ $labels.instance }} were stalled waiting on memory for over 10% of wall-clock time (PSI full-stall, 5m rate). The host is memory-throttled — check for swap thrashing or a runaway allocation."
+                host: "{{ $labels.instance }}"
+                value: "{{ $value | humanizePercentage }} of wall-clock time fully stalled on memory"
+                threshold: "PSI full-stall rate >10% over 5m, sustained 15m"
+                impact: "{{ $labels.instance }} is memory-throttled — tasks are stalling for memory, so the host is slow or unresponsive."
+                action: "Check for swap thrashing or a runaway allocation on {{ $labels.instance }} (`free -h`, `ps aux --sort=-%mem`)."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-resource-pressure.md"
             - alert: NodeIOThrottled
               expr: rate(node_pressure_io_stalled_seconds_total[5m]) > 0.10
               for: 15m
               labels: {severity: warning, service: storage}
               annotations:
                 summary: "{{ $labels.instance }} I/O-throttled {{ $value | humanizePercentage }} of the time"
-                description: "All tasks on {{ $labels.instance }} were stalled waiting on disk I/O for over 10% of wall-clock time (PSI full-stall, 5m rate). Check `iostat -x` for a saturated device."
+                host: "{{ $labels.instance }}"
+                value: "{{ $value | humanizePercentage }} of wall-clock time fully stalled on disk I/O"
+                threshold: "PSI full-stall rate >10% over 5m, sustained 15m"
+                impact: "{{ $labels.instance }} is I/O-throttled — tasks are stalling on disk, so the host is slow."
+                action: "Check `iostat -x` on {{ $labels.instance }} for a saturated device."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-resource-pressure.md"
             - alert: Jbvm02MaintenanceStale
               expr: time() - maintenance_last_success_timestamp_seconds{name="jbvm02-maintenance"} > 691200
               for: 1h
               labels: {severity: warning, service: platform}
               annotations:
                 summary: "JBVM02 weekly disk-hygiene maintenance has not run in over 8 days"
-                description: "The jbvm02-maintenance.timer success heartbeat is stale (>8d). The weekly disk sweep may have stopped — check `systemctl status jbvm02-maintenance.timer` on JBVM02."
+                host: "JBVM02 (192.168.0.203)"
+                value: "last successful run {{ $value | humanizeDuration }} ago"
+                threshold: "no maintenance success for >8 days"
+                impact: "The weekly disk sweep on JBVM02 has stopped; disk hygiene will drift and the root filesystem can fill unnoticed again."
+                action: "Check `systemctl status jbvm02-maintenance.timer` on JBVM02."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/jbvm02-maintenance.md"
 
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).
@@ -452,8 +529,12 @@ kube-prometheus-stack:
               for: 5m
               labels: {severity: critical, service: storage}
               annotations:
-                summary: "ZFS pool {{ $labels.zpool }} on {{ $labels.hostname }} is in state {{ $labels.state }}"
-                description: "Pool {{ $labels.zpool }} reported state '{{ $labels.state }}' for >5m. Run `zpool status -v {{ $labels.zpool }}` on {{ $labels.hostname }} to triage. JBNAS_MEDIA is a stripe pool — DEGRADED there means data loss is imminent."
+                summary: "ZFS pool {{ $labels.zpool }} on {{ $labels.hostname }} is {{ $labels.state }}"
+                host: "{{ $labels.hostname }}"
+                value: "pool {{ $labels.zpool }} state = {{ $labels.state }}"
+                threshold: "any pool except boot-pool not ONLINE, sustained 5m"
+                impact: "Pool {{ $labels.zpool }} is not healthy. JBNAS_MEDIA is a stripe pool — DEGRADED there means data loss is imminent."
+                action: "Run `zpool status -v {{ $labels.zpool }}` on {{ $labels.hostname }} to triage."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/zfs-pool-degraded.md"
 
     # Real user-facing Pi-hole DNS SLI via blackbox-exporter (charts/
@@ -489,7 +570,11 @@ kube-prometheus-stack:
               labels: {severity: critical, service: pihole}
               annotations:
                 summary: "household DNS unreachable (blackbox dns_pihole probe to 192.168.0.205:53)"
-                description: "Real user-facing DNS SLI is failing: blackbox-exporter cannot resolve health.check.local via UDP/53 against 192.168.0.205 (JBDNS01). Every device on the LAN is impacted. Triage: 1) `dig @192.168.0.205 +short google.com` from another host, 2) check pihole-FTL service on JBDNS01 (`systemctl status pihole-FTL`), 3) check upstream resolvers in Pi-hole admin UI, 4) verify JBDNS01 networking is up. This SLI is independent of the pihole-exporter scrape (which has its own warning alerts)."
+                host: "JBDNS01 (192.168.0.205)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "Real user-facing DNS is failing — every device on the LAN cannot resolve names. This is the household-impacting signal, independent of the pihole-exporter scrape."
+                action: "1) `dig @192.168.0.205 +short google.com` from another host; 2) `systemctl status pihole-FTL` on JBDNS01; 3) check upstream resolvers in the Pi-hole admin UI; 4) verify JBDNS01 networking."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
 
     # Loki / Promtail health. Both are scraped via ServiceMonitor enabled in
@@ -506,7 +591,11 @@ kube-prometheus-stack:
               labels: {severity: warning, service: loki}
               annotations:
                 summary: "Loki is down — log ingestion stopped"
-                description: "Loki ServiceMonitor scrape has failed for >5m. Log-based dashboards (logs-network-dns, per-host-fleet) will go blank and Promtail will buffer until disk pressure. Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=loki` and the loki PVC."
+                host: "JBK8S01 (192.168.0.207)"
+                value: "Loki scrape failing (up = 0)"
+                threshold: "up{job=loki} == 0, sustained 5m"
+                impact: "Log ingestion has stopped. Log dashboards go blank and Promtail buffers until disk pressure builds."
+                action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=loki` and the loki PVC."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/loki-down.md"
             - alert: PromtailDown
               expr: up{job="promtail"} == 0
@@ -514,5 +603,9 @@ kube-prometheus-stack:
               labels: {severity: warning, service: promtail}
               annotations:
                 summary: "Promtail down on {{ $labels.instance }} — journal not shipping to Loki"
-                description: "Promtail scrape has failed for >5m on {{ $labels.instance }}. Journal entries from that node are no longer reaching Loki. Check the promtail DaemonSet pod on the affected node and its position file under /run/promtail/."
+                host: "{{ $labels.instance }}"
+                value: "Promtail scrape failing (up = 0)"
+                threshold: "up{job=promtail} == 0, sustained 5m"
+                impact: "Journal entries from {{ $labels.instance }} are no longer reaching Loki — that host's logs go dark."
+                action: "Check the promtail pod on {{ $labels.instance }} and its position file under /run/promtail/."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/promtail-down.md"

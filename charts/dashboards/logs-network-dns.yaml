@@ -34,13 +34,148 @@ data:
       },
       "panels": [
         {
+          "id": 900,
+          "title": "Active alerts \u2014 this dashboard's scope",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 901,
+          "title": "Firing now",
+          "type": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 24,
+            "h": 5
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "Severity",
+                "desc": false
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "ALERTS{alertstate=\"firing\", service=~\"loki|promtail|pihole\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "Value": true,
+                  "alertstate": true,
+                  "namespace": true,
+                  "prometheus": true,
+                  "job": true,
+                  "endpoint": true,
+                  "container": true,
+                  "pod": true,
+                  "hostname": true,
+                  "device": true,
+                  "mountpoint": true,
+                  "attribute_name": true,
+                  "attribute_value_type": true,
+                  "fstype": true,
+                  "zpool": true,
+                  "model_name": true,
+                  "state": true,
+                  "name": true
+                },
+                "renameByName": {
+                  "alertname": "Alert",
+                  "severity": "Severity",
+                  "service": "Service",
+                  "instance": "Host"
+                },
+                "indexByName": {
+                  "alertname": 0,
+                  "severity": 1,
+                  "service": 2,
+                  "instance": 3
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "critical": {
+                            "color": "red",
+                            "text": "CRITICAL",
+                            "index": 0
+                          },
+                          "warning": {
+                            "color": "orange",
+                            "text": "WARNING",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
           "id": 1,
           "title": "Loki \u2014 Log Activity (last 5m)",
           "type": "row",
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 0,
+            "y": 7,
             "w": 24,
             "h": 1
           },
@@ -56,7 +191,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 1,
+            "y": 8,
             "w": 12,
             "h": 8
           },
@@ -112,7 +247,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 1,
+            "y": 8,
             "w": 12,
             "h": 8
           },
@@ -168,7 +303,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 9,
+            "y": 16,
             "w": 12,
             "h": 8
           },
@@ -224,7 +359,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 9,
+            "y": 16,
             "w": 12,
             "h": 8
           },
@@ -277,7 +412,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 17,
+            "y": 24,
             "w": 24,
             "h": 1
           },
@@ -293,7 +428,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 18,
+            "y": 25,
             "w": 24,
             "h": 8
           },
@@ -346,7 +481,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 26,
+            "y": 33,
             "w": 24,
             "h": 1
           },
@@ -362,7 +497,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 27,
+            "y": 34,
             "w": 6,
             "h": 4
           },
@@ -419,7 +554,7 @@ data:
           },
           "gridPos": {
             "x": 6,
-            "y": 27,
+            "y": 34,
             "w": 6,
             "h": 4
           },
@@ -476,7 +611,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 27,
+            "y": 34,
             "w": 6,
             "h": 4
           },
@@ -533,7 +668,7 @@ data:
           },
           "gridPos": {
             "x": 18,
-            "y": 27,
+            "y": 34,
             "w": 6,
             "h": 4
           },
@@ -590,7 +725,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 31,
+            "y": 38,
             "w": 12,
             "h": 7
           },
@@ -645,7 +780,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 31,
+            "y": 38,
             "w": 12,
             "h": 7
           },
@@ -706,7 +841,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 38,
+            "y": 45,
             "w": 24,
             "h": 1
           },
@@ -722,7 +857,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 39,
+            "y": 46,
             "w": 6,
             "h": 4
           },
@@ -783,7 +918,7 @@ data:
           },
           "gridPos": {
             "x": 6,
-            "y": 39,
+            "y": 46,
             "w": 9,
             "h": 4
           },
@@ -838,7 +973,7 @@ data:
           },
           "gridPos": {
             "x": 15,
-            "y": 39,
+            "y": 46,
             "w": 9,
             "h": 4
           },
@@ -890,7 +1025,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 43,
+            "y": 50,
             "w": 24,
             "h": 1
           },
@@ -906,7 +1041,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 44,
+            "y": 51,
             "w": 12,
             "h": 8
           },
@@ -961,7 +1096,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 44,
+            "y": 51,
             "w": 12,
             "h": 8
           },
@@ -1013,7 +1148,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 52,
+            "y": 59,
             "w": 24,
             "h": 1
           },
@@ -1029,7 +1164,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 53,
+            "y": 60,
             "w": 6,
             "h": 4
           },
@@ -1086,7 +1221,7 @@ data:
           },
           "gridPos": {
             "x": 6,
-            "y": 53,
+            "y": 60,
             "w": 6,
             "h": 4
           },
@@ -1151,7 +1286,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 53,
+            "y": 60,
             "w": 12,
             "h": 4
           },

@@ -468,12 +468,20 @@ kube-prometheus-stack:
     # per series, so every node_exporter target (all 6 hosts) is covered with
     # no per-host config. Added 2026-05-20 after JBVM02 silently filled its
     # root disk to 98% with no alert in place.
+    #
+    # fstype excludes network/remote filesystems (cifs, nfs, nfs4, fuse.*,
+    # smb3, 9p): a client host must not page on a server's free space, and
+    # client-side SMB/NFS statfs is transiently bogus during session
+    # reconnects. The NAS pool's own capacity is still alerted — JBNAS01's
+    # node_exporter reports JBNAS_MEDIA as a local filesystem on JBNAS01.
+    # Added 2026-05-20 after JBVM01's CIFS /mnt/nas-media phantom-fired both
+    # rules (incident 2026-05-20-jbvm01-phantom-nas-media-fs-alert.md).
     node-disk-space:
       groups:
         - name: node.disk.alerts
           rules:
             - alert: NodeFilesystemLow
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 15
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|cifs|nfs|nfs4|fuse.*|smb3|9p",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 15
               for: 1h
               labels: {severity: warning, service: storage}
               annotations:
@@ -485,7 +493,7 @@ kube-prometheus-stack:
                 action: "Run `df -h` on {{ $labels.instance }}; clear caches and logs or extend the LV."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-filesystem.md"
             - alert: NodeFilesystemCritical
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 5
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|cifs|nfs|nfs4|fuse.*|smb3|9p",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 5
               for: 15m
               labels: {severity: critical, service: storage}
               annotations:

@@ -354,51 +354,102 @@ GUEST_NETTX = 'rate(pve_network_transmit_bytes{id!~"node/.*|storage/.*"}[5m]) * 
 GUEST_DR    = 'rate(pve_disk_read_bytes{id!~"node/.*|storage/.*"}[5m]) * on(id) group_left(name) pve_guest_info'
 GUEST_DW    = 'rate(pve_disk_write_bytes{id!~"node/.*|storage/.*"}[5m]) * on(id) group_left(name) pve_guest_info'
 
+# node-exporter instance for the Proxmox host itself (host-level load/CPU/mem
+# the pve exporter does not expose loadavg).
+SRV_IP = IPS["srv"]
+# Expected guest count: the six VMs/LXCs defined on the hypervisor (excludes the
+# node and storage pseudo-entries).
+PVE_GUEST_COUNT = 6
+
 proxmox_panels = [
     row(1, f"{HOSTS['srv']} Host", 0),
     stat(2, "Host CPU",
          f'pve_cpu_usage_ratio{{id="node/{HOSTS["srv"]}"}} * 100',
-         "percent", 0, 1, 6, 4),
+         "percent", 0, 1, 6, 4,
+         description="Hypervisor CPU utilisation across all cores. Normal "
+                     "below 60%; yellow at 70%, red at 90% indicates the host "
+                     "is CPU-constrained and guests may be throttled."),
     stat(3, "Host Memory",
          f'pve_memory_usage_bytes{{id="node/{HOSTS["srv"]}"}} / '
          f'pve_memory_size_bytes{{id="node/{HOSTS["srv"]}"}} * 100',
-         "percent", 6, 1, 6, 4),
+         "percent", 6, 1, 6, 4,
+         description="Hypervisor RAM in use as a percentage of installed "
+                     "memory. Normal below 70%; red at 90% risks the OOM "
+                     "killer reaping a guest or ZFS ARC."),
     stat(4, "Host Uptime",
          f'pve_uptime_seconds{{id="node/{HOSTS["srv"]}"}}',
-         "dtdurations", 12, 1, 6, 4, thresholds=GREEN_ONLY),
-    stat(5, "Guests Online",
+         "dtdurations", 12, 1, 6, 4, thresholds=GREEN_ONLY,
+         description="Time since the hypervisor last booted. Informational, "
+                     "no threshold; a sudden reset to near-zero means JBSRV01 "
+                     "rebooted."),
+    stat(5, f"Guests Running (of {PVE_GUEST_COUNT})",
          'count(pve_up{id!~"node/.*|storage/.*"} == 1)',
-         "short", 18, 1, 6, 4, thresholds=GREEN_ONLY),
+         "short", 18, 1, 6, 4, thresholds=GREEN_ONLY,
+         description=f"Count of QEMU/LXC guests reporting pve_up==1. Expected "
+                     f"{PVE_GUEST_COUNT} (all defined guests). A lower number "
+                     f"means a guest is stopped or crashed."),
 
-    row(6, "Guest Status", 5),
-    bargauge(7, "Guest CPU %", [t(GUEST_CPU, "{{name}}")],
-             "percent", 0, 6, 12, 8),
-    bargauge(8, "Guest Memory Used", [t(GUEST_MEM, "{{name}}")],
-             "bytes", 12, 6, 12, 8, min_val=0, max_val=16 * 1024**3),
-
-    row(9, "CPU & Memory Over Time", 14),
+    row(6, "CPU & Memory Over Time", 5),
     timeseries(10, "Guest CPU %", [t(GUEST_CPU, "{{name}}")],
-               "percent", 0, 15, 12, 8),
+               "percent", 0, 6, 12, 8,
+               description="Per-guest CPU utilisation over time. Each line is "
+                           "one VM/LXC; sustained high lines flag a busy or "
+                           "runaway guest."),
     timeseries(11, "Guest Memory Used", [t(GUEST_MEM, "{{name}}")],
-               "bytes", 12, 15, 12, 8),
+               "bytes", 12, 6, 12, 8,
+               description="Per-guest memory consumption over time. Watch for "
+                           "a guest climbing steadily — a likely memory leak."),
+    timeseries(20, "Hypervisor CPU & Memory over time",
+               [t(f'pve_cpu_usage_ratio{{id="node/{HOSTS["srv"]}"}} * 100',
+                  "Host CPU %"),
+                t(f'pve_memory_usage_bytes{{id="node/{HOSTS["srv"]}"}} / '
+                  f'pve_memory_size_bytes{{id="node/{HOSTS["srv"]}"}} * 100',
+                  "Host Mem %", "B")],
+               "percent", 0, 14, 12, 8,
+               description="JBSRV01 host CPU and memory utilisation over time "
+                           "(the history behind the instant Host CPU/Memory "
+                           "stats). Both should track well below 90%."),
+    timeseries(21, "Host load average",
+               [t(f'node_load1{{instance="{SRV_IP}"}}',  "1m"),
+                t(f'node_load5{{instance="{SRV_IP}"}}',  "5m",  "B"),
+                t(f'node_load15{{instance="{SRV_IP}"}}', "15m", "C")],
+               "short", 12, 14, 12, 8, fill=0,
+               description="Run-queue load average for the hypervisor (1/5/15m "
+                           "windows). Compare to the host vCPU count: load "
+                           "near vCPUs means fully busy, well above means CPU "
+                           "saturation and scheduling delay."),
 
-    row(12, "Disk & Network I/O", 23),
-    timeseries(13, "Disk Read",  [t(GUEST_DR,    "{{name}}")], "Bps", 0,  24, 12, 8),
-    timeseries(14, "Disk Write", [t(GUEST_DW,    "{{name}}")], "Bps", 12, 24, 12, 8),
-    timeseries(15, "Network Rx", [t(GUEST_NETRX, "{{name}}")], "Bps", 0,  32, 12, 8),
-    timeseries(16, "Network Tx", [t(GUEST_NETTX, "{{name}}")], "Bps", 12, 32, 12, 8),
+    row(12, "Disk & Network I/O", 22),
+    timeseries(13, "Disk Read",  [t(GUEST_DR,    "{{name}}")], "Bps", 0,  23, 12, 8,
+               description="Per-guest disk read throughput (5m rate). Spikes "
+                           "are normal during backups or boot."),
+    timeseries(14, "Disk Write", [t(GUEST_DW,    "{{name}}")], "Bps", 12, 23, 12, 8,
+               description="Per-guest disk write throughput (5m rate). "
+                           "Sustained high write may indicate heavy logging "
+                           "or a database workload."),
+    timeseries(15, "Network Rx", [t(GUEST_NETRX, "{{name}}")], "Bps", 0,  31, 12, 8,
+               description="Per-guest inbound network throughput (5m rate)."),
+    timeseries(16, "Network Tx", [t(GUEST_NETTX, "{{name}}")], "Bps", 12, 31, 12, 8,
+               description="Per-guest outbound network throughput (5m rate). "
+                           "Plex streaming shows here as JBNAS01 Tx."),
 
-    row(17, "Proxmox Storage", 40),
+    row(17, "Proxmox Storage", 39),
     bargauge(18, "Storage Disk Usage",
              [t('pve_disk_usage_bytes{id=~"storage/.*"} / '
                 'pve_disk_size_bytes{id=~"storage/.*"} * 100',
                 "{{id}}")],
-             "percent", 0, 41, 12, 6),
+             "percent", 0, 40, 12, 6,
+             description="Percentage full of each Proxmox storage pool. Yellow "
+                         "at 70%, red at 90% — a full storage pool blocks new "
+                         "guest disks and snapshots."),
     bargauge(19, "Storage Free",
              [t('pve_disk_size_bytes{id=~"storage/.*"} - '
                 'pve_disk_usage_bytes{id=~"storage/.*"}',
                 "{{id}}")],
-             "bytes", 12, 41, 12, 6, min_val=0, max_val=250 * 1024**3),
+             "bytes", 12, 40, 12, 6, min_val=0, max_val=250 * 1024**3,
+             description="Free space remaining per Proxmox storage pool. The "
+                         "bar is scaled to a 250 GiB reference; the absolute "
+                         "byte value is what matters."),
 ]
 
 # ── Dashboard 2: NAS / ZFS ────────────────────────────────────────────────────

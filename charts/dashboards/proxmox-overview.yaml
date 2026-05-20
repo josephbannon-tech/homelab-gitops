@@ -192,7 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Hypervisor CPU utilisation across all cores. Normal below 60%; yellow at 70%, red at 90% indicates the host is CPU-constrained and guests may be throttled.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -258,7 +258,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Hypervisor RAM in use as a percentage of installed memory. Normal below 70%; red at 90% risks the OOM killer reaping a guest or ZFS ARC.",
           "gridPos": {
             "x": 6,
             "y": 8,
@@ -324,7 +324,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the hypervisor last booted. Informational, no threshold; a sudden reset to near-zero means JBSRV01 rebooted.",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -376,13 +376,13 @@ data:
         },
         {
           "id": 5,
-          "title": "Guests Online",
+          "title": "Guests Running (of 6)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of QEMU/LXC guests reporting pve_up==1. Expected 6 (all defined guests). A lower number means a guest is stopped or crashed.",
           "gridPos": {
             "x": 18,
             "y": 8,
@@ -434,153 +434,13 @@ data:
         },
         {
           "id": 6,
-          "title": "Guest Status",
-          "type": "row",
-          "collapsed": false,
-          "description": "",
-          "gridPos": {
-            "x": 0,
-            "y": 12,
-            "w": 24,
-            "h": 1
-          },
-          "panels": []
-        },
-        {
-          "id": 7,
-          "title": "Guest CPU %",
-          "type": "bargauge",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "gridPos": {
-            "x": 0,
-            "y": 13,
-            "w": 12,
-            "h": 8
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "orientation": "horizontal",
-            "displayMode": "gradient",
-            "valueMode": "color"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "min": 0,
-              "max": 100,
-              "mappings": [],
-              "thresholds": {
-                "mode": "percentage",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 70
-                  },
-                  {
-                    "color": "red",
-                    "value": 90
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "pve_cpu_usage_ratio{id!~\"node/.*\"} * on(id) group_left(name) pve_guest_info * 100",
-              "legendFormat": "{{name}}",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 8,
-          "title": "Guest Memory Used",
-          "type": "bargauge",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "gridPos": {
-            "x": 12,
-            "y": 13,
-            "w": 12,
-            "h": 8
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "orientation": "horizontal",
-            "displayMode": "gradient",
-            "valueMode": "color"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "bytes",
-              "min": 0,
-              "max": 17179869184,
-              "mappings": [],
-              "thresholds": {
-                "mode": "percentage",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 70
-                  },
-                  {
-                    "color": "red",
-                    "value": 90
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "pve_memory_usage_bytes{id!~\"node/.*\"} * on(id) group_left(name) pve_guest_info",
-              "legendFormat": "{{name}}",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 9,
           "title": "CPU & Memory Over Time",
           "type": "row",
           "collapsed": false,
           "description": "",
           "gridPos": {
             "x": 0,
-            "y": 21,
+            "y": 12,
             "w": 24,
             "h": 1
           },
@@ -594,10 +454,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest CPU utilisation over time. Each line is one VM/LXC; sustained high lines flag a busy or runaway guest.",
           "gridPos": {
             "x": 0,
-            "y": 22,
+            "y": 13,
             "w": 12,
             "h": 8
           },
@@ -650,10 +510,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest memory consumption over time. Watch for a guest climbing steadily \u2014 a likely memory leak.",
           "gridPos": {
             "x": 12,
-            "y": 22,
+            "y": 13,
             "w": 12,
             "h": 8
           },
@@ -699,6 +559,145 @@ data:
           ]
         },
         {
+          "id": 20,
+          "title": "Hypervisor CPU & Memory over time",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "JBSRV01 host CPU and memory utilisation over time (the history behind the instant Host CPU/Memory stats). Both should track well below 90%.",
+          "gridPos": {
+            "x": 0,
+            "y": 21,
+            "w": 12,
+            "h": 8
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "pve_cpu_usage_ratio{id=\"node/JBSRV01\"} * 100",
+              "legendFormat": "Host CPU %",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "pve_memory_usage_bytes{id=\"node/JBSRV01\"} / pve_memory_size_bytes{id=\"node/JBSRV01\"} * 100",
+              "legendFormat": "Host Mem %",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "title": "Host load average",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Run-queue load average for the hypervisor (1/5/15m windows). Compare to the host vCPU count: load near vCPUs means fully busy, well above means CPU saturation and scheduling delay.",
+          "gridPos": {
+            "x": 12,
+            "y": 21,
+            "w": 12,
+            "h": 8
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load1{instance=\"192.168.0.200\"}",
+              "legendFormat": "1m",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load5{instance=\"192.168.0.200\"}",
+              "legendFormat": "5m",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load15{instance=\"192.168.0.200\"}",
+              "legendFormat": "15m",
+              "refId": "C"
+            }
+          ]
+        },
+        {
           "id": 12,
           "title": "Disk & Network I/O",
           "type": "row",
@@ -706,7 +705,7 @@ data:
           "description": "",
           "gridPos": {
             "x": 0,
-            "y": 30,
+            "y": 29,
             "w": 24,
             "h": 1
           },
@@ -720,10 +719,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest disk read throughput (5m rate). Spikes are normal during backups or boot.",
           "gridPos": {
             "x": 0,
-            "y": 31,
+            "y": 30,
             "w": 12,
             "h": 8
           },
@@ -776,10 +775,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest disk write throughput (5m rate). Sustained high write may indicate heavy logging or a database workload.",
           "gridPos": {
             "x": 12,
-            "y": 31,
+            "y": 30,
             "w": 12,
             "h": 8
           },
@@ -832,10 +831,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest inbound network throughput (5m rate).",
           "gridPos": {
             "x": 0,
-            "y": 39,
+            "y": 38,
             "w": 12,
             "h": 8
           },
@@ -888,10 +887,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Per-guest outbound network throughput (5m rate). Plex streaming shows here as JBNAS01 Tx.",
           "gridPos": {
             "x": 12,
-            "y": 39,
+            "y": 38,
             "w": 12,
             "h": 8
           },
@@ -944,7 +943,7 @@ data:
           "description": "",
           "gridPos": {
             "x": 0,
-            "y": 47,
+            "y": 46,
             "w": 24,
             "h": 1
           },
@@ -958,10 +957,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Percentage full of each Proxmox storage pool. Yellow at 70%, red at 90% \u2014 a full storage pool blocks new guest disks and snapshots.",
           "gridPos": {
             "x": 0,
-            "y": 48,
+            "y": 47,
             "w": 12,
             "h": 6
           },
@@ -1021,10 +1020,10 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Free space remaining per Proxmox storage pool. The bar is scaled to a 250 GiB reference; the absolute byte value is what matters.",
           "gridPos": {
             "x": 12,
-            "y": 48,
+            "y": 47,
             "w": 12,
             "h": 6
           },

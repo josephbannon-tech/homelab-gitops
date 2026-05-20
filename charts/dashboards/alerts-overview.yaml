@@ -55,7 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of critical-severity alerts firing right now. Expected 0 \u2014 any non-zero is a page-worthy incident.",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -117,7 +117,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of warning-severity alerts firing right now. Non-zero is amber \u2014 investigate, but not an emergency.",
           "gridPos": {
             "x": 8,
             "y": 1,
@@ -179,7 +179,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Total alerts firing across all severities. Informational; the headline number for estate health.",
           "gridPos": {
             "x": 16,
             "y": 1,
@@ -237,7 +237,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Every alert currently firing, with severity, service and host. Sorted by severity \u2014 the live incident queue for the estate.",
           "gridPos": {
             "x": 0,
             "y": 6,
@@ -374,7 +374,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of firing alerts by severity over time. Shows whether alerts are flapping or steadily accumulating.",
           "gridPos": {
             "x": 0,
             "y": 17,

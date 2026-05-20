@@ -259,7 +259,10 @@ def with_alert_strip(panels, selector):
     """Prepend a firing-alerts row + table to a dashboard's panels."""
     strip = [
         row(900, "Active alerts — this dashboard's scope", 0),
-        alerts_table(901, "Firing now", 0, 1, 24, 5, selector),
+        alerts_table(901, "Firing now", 0, 1, 24, 5, selector,
+                     description="Alerts firing right now that fall within "
+                                 "this dashboard's scope. Empty is good — any "
+                                 "row is a live incident for these services."),
     ]
     return strip + shift(panels, 7)
 
@@ -1135,18 +1138,30 @@ alerts_overview_panels = [
     row(900, "Active alerts", 0),
     stat(901, "Critical firing",
          'count(ALERTS{alertstate="firing",severity="critical"}) or vector(0)',
-         "short", 0, 1, 8, 5, thresholds=ZERO_GREEN_ONE_RED),
+         "short", 0, 1, 8, 5, thresholds=ZERO_GREEN_ONE_RED,
+         description="Count of critical-severity alerts firing right now. "
+                     "Expected 0 — any non-zero is a page-worthy incident."),
     stat(902, "Warning firing",
          'count(ALERTS{alertstate="firing",severity="warning"}) or vector(0)',
-         "short", 8, 1, 8, 5, thresholds=WARN_THRESH),
+         "short", 8, 1, 8, 5, thresholds=WARN_THRESH,
+         description="Count of warning-severity alerts firing right now. "
+                     "Non-zero is amber — investigate, but not an emergency."),
     stat(903, "Total firing",
          'count(ALERTS{alertstate="firing"}) or vector(0)',
-         "short", 16, 1, 8, 5, thresholds=GREEN_ONLY),
-    alerts_table(904, "All firing alerts", 0, 6, 24, 10),
+         "short", 16, 1, 8, 5, thresholds=GREEN_ONLY,
+         description="Total alerts firing across all severities. "
+                     "Informational; the headline number for estate health."),
+    alerts_table(904, "All firing alerts", 0, 6, 24, 10,
+                 description="Every alert currently firing, with severity, "
+                             "service and host. Sorted by severity — the "
+                             "live incident queue for the estate."),
     row(905, "History", 16),
     timeseries(906, "Firing alerts by severity",
                [t('count by (severity) (ALERTS{alertstate="firing"})', "{{severity}}")],
-               "short", 0, 17, 24, 8),
+               "short", 0, 17, 24, 8,
+               description="Count of firing alerts by severity over time. "
+                           "Shows whether alerts are flapping or steadily "
+                           "accumulating."),
 ]
 
 # ── Emit ConfigMap YAMLs ──────────────────────────────────────────────────────

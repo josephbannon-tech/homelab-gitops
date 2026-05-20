@@ -8,6 +8,7 @@ Conventions:
   datasource at panel level (per-target alone is overridden by Grafana).
 - ``DASHBOARDS`` at the bottom is the single source of truth for what to emit.
 """
+import copy
 import json
 
 # ── Datasources ──────────────────────────────────────────────────────────────
@@ -184,6 +185,75 @@ def t(expr, legend, ref="A", ds=None):
 def t_loki(expr, legend, ref="A"):
     return {"datasource": LOKI_DS, "expr": expr, "legendFormat": legend,
             "refId": ref, "queryType": "range"}
+
+# ── Firing-alert panels (ALERTS metric) ──────────────────────────────────────
+
+def t_table(expr, ref="A"):
+    """Instant target in table format — for the ALERTS metric."""
+    return {"datasource": DS, "expr": expr, "instant": True,
+            "format": "table", "legendFormat": "", "refId": ref}
+
+# Noise columns to drop from an ALERTS table (rule-specific labels + internals).
+_ALERT_HIDE = ["Time", "__name__", "Value", "alertstate", "namespace",
+               "prometheus", "job", "endpoint", "container", "pod", "hostname",
+               "device", "mountpoint", "attribute_name", "attribute_value_type",
+               "fstype", "zpool", "model_name", "state", "name"]
+
+WARN_THRESH = {"mode": "absolute",
+               "steps": [{"color": "green", "value": None},
+                         {"color": "orange", "value": 1}]}
+
+def alerts_table(id, title, x, y, w, h, selector=""):
+    """Table of firing alerts over the ALERTS metric. ``selector`` is an extra
+    label-matcher fragment, e.g. ``', service=~"plex|nas"'``."""
+    expr = 'ALERTS{alertstate="firing"%s}' % selector
+    return {
+        "id": id, "title": title, "type": "table", "datasource": DS,
+        "gridPos": {"x": x, "y": y, "w": w, "h": h},
+        "options": {"showHeader": True,
+                    "sortBy": [{"displayName": "Severity", "desc": False}]},
+        "targets": [t_table(expr)],
+        "transformations": [{
+            "id": "organize",
+            "options": {
+                "excludeByName": {n: True for n in _ALERT_HIDE},
+                "renameByName": {"alertname": "Alert", "severity": "Severity",
+                                 "service": "Service", "instance": "Host"},
+                "indexByName": {"alertname": 0, "severity": 1,
+                                "service": 2, "instance": 3},
+            },
+        }],
+        "fieldConfig": {
+            "defaults": {"custom": {"align": "auto", "filterable": True}},
+            "overrides": [{
+                "matcher": {"id": "byName", "options": "Severity"},
+                "properties": [
+                    {"id": "custom.cellOptions", "value": {"type": "color-text"}},
+                    {"id": "mappings", "value": [{"type": "value", "options": {
+                        "critical": {"color": "red", "text": "CRITICAL", "index": 0},
+                        "warning": {"color": "orange", "text": "WARNING", "index": 1},
+                    }}]},
+                ],
+            }],
+        },
+    }
+
+def shift(panels, dy):
+    """Return a copy of ``panels`` with every gridPos.y shifted down by ``dy``."""
+    out = []
+    for p in panels:
+        p = copy.deepcopy(p)
+        p["gridPos"]["y"] += dy
+        out.append(p)
+    return out
+
+def with_alert_strip(panels, selector):
+    """Prepend a firing-alerts row + table to a dashboard's panels."""
+    strip = [
+        row(900, "Active alerts — this dashboard's scope", 0),
+        alerts_table(901, "Firing now", 0, 1, 24, 5, selector),
+    ]
+    return strip + shift(panels, 7)
 
 # ── Reusable panel/threshold idioms ──────────────────────────────────────────
 
@@ -723,6 +793,26 @@ per_host_panels = [
                     "short", 0, 38, 24, 6),
 ]
 
+# ── Alerts overview dashboard ────────────────────────────────────────────────
+
+alerts_overview_panels = [
+    row(900, "Active alerts", 0),
+    stat(901, "Critical firing",
+         'count(ALERTS{alertstate="firing",severity="critical"}) or vector(0)',
+         "short", 0, 1, 8, 5, thresholds=ZERO_GREEN_ONE_RED),
+    stat(902, "Warning firing",
+         'count(ALERTS{alertstate="firing",severity="warning"}) or vector(0)',
+         "short", 8, 1, 8, 5, thresholds=WARN_THRESH),
+    stat(903, "Total firing",
+         'count(ALERTS{alertstate="firing"}) or vector(0)',
+         "short", 16, 1, 8, 5, thresholds=GREEN_ONLY),
+    alerts_table(904, "All firing alerts", 0, 6, 24, 10),
+    row(905, "History", 16),
+    timeseries(906, "Firing alerts by severity",
+               [t('count by (severity) (ALERTS{alertstate="firing"})', "{{severity}}")],
+               "short", 0, 17, 24, 8),
+]
+
 # ── Emit ConfigMap YAMLs ──────────────────────────────────────────────────────
 
 def configmap(name, filename, db):
@@ -742,17 +832,22 @@ def configmap(name, filename, db):
         lines.append("    " + line)
     return "\n".join(lines) + "\n"
 
-# Single source of truth: (slug, title, panels, templating-extras)
+# Single source of truth: (slug, title, panels, templating-extras, alert-selector)
+# alert-selector is an extra ALERTS label matcher for the per-dashboard strip;
+# None means no strip (the alerts-overview dashboard is itself the alert board).
 DASHBOARDS = [
-    ("proxmox-overview",     "Proxmox — Host & Guest Overview",   proxmox_panels,   None),
-    ("nas-zfs",              "NAS — ZFS Pools & ARC",             zfs_panels,       None),
-    ("family-services-slo",  "Family Services — SLO Board",       slo_panels,       None),
-    ("capacity-backup-dr",   "Capacity, Growth & Backup/DR",      capacity_panels,  None),
-    ("logs-network-dns",     "Logs + Network/DNS Overview",       logs_panels,      None),
-    ("per-host-fleet",       "Per-Host Fleet Drill-Down",         per_host_panels,  [DS_VAR, HOSTNAME_VAR]),
+    ("proxmox-overview",     "Proxmox — Host & Guest Overview",   proxmox_panels,   None,                  ', service=~"storage|compute"'),
+    ("nas-zfs",              "NAS — ZFS Pools & ARC",             zfs_panels,       None,                  ', alertname=~"Zfs.*|Smart.*|Nas.*"'),
+    ("family-services-slo",  "Family Services — SLO Board",       slo_panels,       None,                  ', service=~"plex|minecraft|pihole|nas|tailscale"'),
+    ("capacity-backup-dr",   "Capacity, Growth & Backup/DR",      capacity_panels,  None,                  ', service=~"storage|platform"'),
+    ("logs-network-dns",     "Logs + Network/DNS Overview",       logs_panels,      None,                  ', service=~"loki|promtail|pihole"'),
+    ("per-host-fleet",       "Per-Host Fleet Drill-Down",         per_host_panels,  [DS_VAR, HOSTNAME_VAR], ', hostname=~"$hostname"'),
+    ("alerts-overview",      "Alerts — Fleet Overview",           alerts_overview_panels, None,            None),
 ]
 
-for slug, title, panels, extra_vars in DASHBOARDS:
+for slug, title, panels, extra_vars, alert_sel in DASHBOARDS:
+    if alert_sel is not None:
+        panels = with_alert_strip(panels, alert_sel)
     db = dashboard(title, slug, panels, templating=extra_vars)
     with open(f"charts/dashboards/{slug}.yaml", "w") as f:
         f.write(configmap(f"grafana-dashboard-{slug}", f"{slug}.json", db))

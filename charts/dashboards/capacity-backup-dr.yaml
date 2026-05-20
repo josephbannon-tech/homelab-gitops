@@ -34,13 +34,148 @@ data:
       },
       "panels": [
         {
+          "id": 900,
+          "title": "Active alerts \u2014 this dashboard's scope",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 901,
+          "title": "Firing now",
+          "type": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 24,
+            "h": 5
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "Severity",
+                "desc": false
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "ALERTS{alertstate=\"firing\", service=~\"storage|platform\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "Value": true,
+                  "alertstate": true,
+                  "namespace": true,
+                  "prometheus": true,
+                  "job": true,
+                  "endpoint": true,
+                  "container": true,
+                  "pod": true,
+                  "hostname": true,
+                  "device": true,
+                  "mountpoint": true,
+                  "attribute_name": true,
+                  "attribute_value_type": true,
+                  "fstype": true,
+                  "zpool": true,
+                  "model_name": true,
+                  "state": true,
+                  "name": true
+                },
+                "renameByName": {
+                  "alertname": "Alert",
+                  "severity": "Severity",
+                  "service": "Service",
+                  "instance": "Host"
+                },
+                "indexByName": {
+                  "alertname": 0,
+                  "severity": 1,
+                  "service": 2,
+                  "instance": 3
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "critical": {
+                            "color": "red",
+                            "text": "CRITICAL",
+                            "index": 0
+                          },
+                          "warning": {
+                            "color": "orange",
+                            "text": "WARNING",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
           "id": 1,
           "title": "Filesystem Free Space (%) \u2014 across all hosts",
           "type": "row",
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 0,
+            "y": 7,
             "w": 24,
             "h": 1
           },
@@ -56,7 +191,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 1,
+            "y": 8,
             "w": 24,
             "h": 10
           },
@@ -115,7 +250,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 11,
+            "y": 18,
             "w": 24,
             "h": 1
           },
@@ -131,7 +266,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 12,
+            "y": 19,
             "w": 24,
             "h": 8
           },
@@ -190,7 +325,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 20,
+            "y": 27,
             "w": 24,
             "h": 1
           },
@@ -206,7 +341,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 21,
+            "y": 28,
             "w": 6,
             "h": 4
           },
@@ -267,7 +402,7 @@ data:
           },
           "gridPos": {
             "x": 6,
-            "y": 21,
+            "y": 28,
             "w": 6,
             "h": 4
           },
@@ -328,7 +463,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 21,
+            "y": 28,
             "w": 6,
             "h": 4
           },
@@ -393,7 +528,7 @@ data:
           },
           "gridPos": {
             "x": 18,
-            "y": 21,
+            "y": 28,
             "w": 6,
             "h": 4
           },
@@ -447,7 +582,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 25,
+            "y": 32,
             "w": 24,
             "h": 1
           },
@@ -463,7 +598,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 26,
+            "y": 33,
             "w": 12,
             "h": 8
           },
@@ -518,7 +653,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 26,
+            "y": 33,
             "w": 12,
             "h": 8
           },
@@ -570,7 +705,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 34,
+            "y": 41,
             "w": 24,
             "h": 1
           },
@@ -586,7 +721,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 35,
+            "y": 42,
             "w": 16,
             "h": 8
           },
@@ -641,7 +776,7 @@ data:
           },
           "gridPos": {
             "x": 16,
-            "y": 35,
+            "y": 42,
             "w": 8,
             "h": 4
           },
@@ -702,7 +837,7 @@ data:
           },
           "gridPos": {
             "x": 16,
-            "y": 39,
+            "y": 46,
             "w": 8,
             "h": 4
           },
@@ -760,7 +895,7 @@ data:
           "collapsed": false,
           "gridPos": {
             "x": 0,
-            "y": 43,
+            "y": 50,
             "w": 24,
             "h": 1
           },
@@ -776,7 +911,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -841,7 +976,7 @@ data:
           },
           "gridPos": {
             "x": 4,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -906,7 +1041,7 @@ data:
           },
           "gridPos": {
             "x": 8,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -971,7 +1106,7 @@ data:
           },
           "gridPos": {
             "x": 12,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -1036,7 +1171,7 @@ data:
           },
           "gridPos": {
             "x": 16,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -1101,7 +1236,7 @@ data:
           },
           "gridPos": {
             "x": 20,
-            "y": 44,
+            "y": 51,
             "w": 4,
             "h": 4
           },
@@ -1166,7 +1301,7 @@ data:
           },
           "gridPos": {
             "x": 0,
-            "y": 48,
+            "y": 55,
             "w": 6,
             "h": 4
           },
@@ -1223,7 +1358,7 @@ data:
           "type": "text",
           "gridPos": {
             "x": 6,
-            "y": 48,
+            "y": 55,
             "w": 18,
             "h": 4
           },

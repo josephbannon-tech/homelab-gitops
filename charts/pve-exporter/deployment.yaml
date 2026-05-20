@@ -15,13 +15,34 @@ spec:
       labels:
         app: pve-exporter
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: pve-exporter
           image: prompve/prometheus-pve-exporter:3.5.3
+          imagePullPolicy: IfNotPresent
           args:
             - --config.file=/etc/pve/pve.yml
           ports:
             - containerPort: 9221
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9221
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9221
+            initialDelaySeconds: 10
+            periodSeconds: 30
           volumeMounts:
             - name: config
               mountPath: /etc/pve

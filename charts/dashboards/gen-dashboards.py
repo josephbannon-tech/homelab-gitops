@@ -1003,77 +1003,130 @@ per_host_panels = [
     row(1, "Snapshot", 0),
     stat(2, "Uptime",
          'time() - node_boot_time_seconds{hostname="$hostname"}',
-         "dtdurations", 0, 1, 5, 4, thresholds=GREEN_ONLY),
-    stat(3, "Load (1m)",
+         "dtdurations", 0, 1, 4, 4, thresholds=GREEN_ONLY,
+         description="Time since the selected host last booted. "
+                     "Informational; a reset to near-zero means the host "
+                     "rebooted."),
+    stat(3, "Load average (1m)",
          'node_load1{hostname="$hostname"}',
-         "short", 5, 1, 5, 4, thresholds=NO_THRESH),
-    stat(4, "CPU busy %",
+         "short", 4, 1, 4, 4, thresholds=NO_THRESH,
+         description="1-minute kernel load average. Compare to the host's "
+                     "vCPU count (see CPU cores): load near the core count "
+                     "means fully busy, well above means CPU saturation and "
+                     "run-queue queueing."),
+    stat(4, "CPU cores",
+         'count(node_cpu_seconds_total{hostname="$hostname",mode="idle"})',
+         "short", 8, 1, 4, 4, thresholds=GREEN_ONLY,
+         description="Number of vCPUs on the selected host — the denominator "
+                     "for the load-average figures. Load above this number "
+                     "means the CPU is oversubscribed."),
+    stat(5, "CPU busy %",
          '100 - (avg by (hostname) (rate(node_cpu_seconds_total{hostname="$hostname",mode="idle"}[5m])) * 100)',
-         "percent", 10, 1, 5, 4),
-    stat(5, "Free RAM %",
+         "percent", 12, 1, 4, 4,
+         description="CPU utilisation across all cores (5m average). Normal "
+                     "below 70%; red at 90% means the host is CPU-bound."),
+    stat(6, "Free RAM %",
          '100 * node_memory_MemAvailable_bytes{hostname="$hostname"} / node_memory_MemTotal_bytes{hostname="$hostname"}',
-         "percent", 15, 1, 5, 4,
+         "percent", 16, 1, 4, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "yellow", "value": 10},
-                               {"color": "green", "value": 25}]}),
-    stat(6, "Root FS free %",
+                               {"color": "green", "value": 25}]},
+         description="Available memory as a percentage of total. Green above "
+                     "25%; below 10% (red) the host is close to OOM."),
+    stat(7, "Root FS free %",
          '100 * node_filesystem_avail_bytes{hostname="$hostname",mountpoint="/"} / '
          'node_filesystem_size_bytes{hostname="$hostname",mountpoint="/"}',
          "percent", 20, 1, 4, 4,
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "yellow", "value": 10},
-                               {"color": "green", "value": 20}]}),
+                               {"color": "green", "value": 20}]},
+         description="Free space on the root filesystem. Green above 20%; "
+                     "below 10% (red) risks the host filling its disk."),
 
-    row(7, "CPU & Memory", 5),
-    timeseries(8, "CPU usage by mode",
+    row(8, "CPU & Memory", 5),
+    timeseries(9, "CPU usage by mode",
                [t('sum by (mode) (rate(node_cpu_seconds_total{hostname="$hostname",mode!="idle"}[5m])) '
                   '/ on() group_left scalar(count(node_cpu_seconds_total{hostname="$hostname",mode="idle"}))',
                   "{{mode}}")],
-               "percentunit", 0, 6, 12, 8, stacking="normal"),
-    timeseries(9, "Memory breakdown",
+               "percentunit", 0, 6, 8, 8, stacking="normal",
+               description="CPU time by mode (user/system/iowait/...), "
+                           "normalised per core and stacked. A tall iowait "
+                           "band points to disk pressure, not CPU."),
+    timeseries(10, "Memory breakdown",
                [t('node_memory_MemTotal_bytes{hostname="$hostname"} - '
                   'node_memory_MemAvailable_bytes{hostname="$hostname"}', "Used"),
                 t('node_memory_Cached_bytes{hostname="$hostname"} + '
                   'node_memory_Buffers_bytes{hostname="$hostname"}', "Cache+Buffers", "B"),
                 t('node_memory_MemFree_bytes{hostname="$hostname"}', "Free", "C")],
-               "bytes", 12, 6, 12, 8),
+               "bytes", 8, 6, 8, 8,
+               description="Memory split into used, cache/buffers and free. "
+                           "Cache+Buffers is reclaimable — only sustained "
+                           "high Used with low Free is real pressure."),
+    timeseries(11, "Load average (1m/5m/15m)",
+               [t('node_load1{hostname="$hostname"}',  "1m"),
+                t('node_load5{hostname="$hostname"}',  "5m",  "B"),
+                t('node_load15{hostname="$hostname"}', "15m", "C")],
+               "short", 16, 6, 8, 8, fill=0,
+               description="Kernel load average over 1/5/15m windows. "
+                           "Compare against the host's vCPU count: lines "
+                           "riding above the core count mean sustained CPU "
+                           "saturation."),
 
-    row(10, "Disk & Network", 14),
-    timeseries(11, "Disk I/O (Bps)",
+    row(12, "Disk & Network", 14),
+    timeseries(13, "Disk I/O (Bps)",
                [t('rate(node_disk_read_bytes_total{hostname="$hostname",device!~"loop.*|dm-.*"}[5m])',
                   "read {{device}}"),
                 t('rate(node_disk_written_bytes_total{hostname="$hostname",device!~"loop.*|dm-.*"}[5m])',
                   "write {{device}}", "B")],
-               "Bps", 0, 15, 12, 8),
-    timeseries(12, "Network rx/tx (Bps)",
+               "Bps", 0, 15, 12, 8,
+               description="Per-device disk read and write throughput (5m "
+                           "rate). Loop and device-mapper devices are "
+                           "excluded."),
+    timeseries(14, "Network rx/tx (Bps)",
                [t('rate(node_network_receive_bytes_total{hostname="$hostname",device!~"lo|veth.*|tailscale.*|cni.*|cali.*"}[5m])',
                   "rx {{device}}"),
                 t('rate(node_network_transmit_bytes_total{hostname="$hostname",device!~"lo|veth.*|tailscale.*|cni.*|cali.*"}[5m])',
                   "tx {{device}}", "B")],
-               "Bps", 12, 15, 12, 8),
-    bargauge(13, "Filesystem usage % (per mountpoint)",
+               "Bps", 12, 15, 12, 8,
+               description="Per-interface network receive and transmit "
+                           "throughput (5m rate). Loopback and virtual/CNI "
+                           "interfaces are excluded."),
+    bargauge(15, "Filesystem usage % (per mountpoint)",
              [t(f'100 - (100 * node_filesystem_avail_bytes{{hostname="$hostname",{FS_FILTER}}} / '
                 f'node_filesystem_size_bytes{{hostname="$hostname",{FS_FILTER}}})',
                 "{{mountpoint}}")],
-             "percent", 0, 23, 24, 6),
+             "percent", 0, 23, 24, 6,
+             description="Percentage used per mountpoint on the selected "
+                         "host. Yellow at 70%, red at 90% — a full filesystem "
+                         "blocks writes."),
 
-    row(14, "Logs (Loki, journal)", 29),
-    loki_timeseries(15, "Top 10 noisy units (lines/sec)",
+    row(16, "Logs (Loki, journal)", 29),
+    loki_timeseries(17, "Top 10 noisy units (lines/sec)",
                     [t_loki('topk(10, sum by (unit) (rate({hostname="$hostname",job="systemd-journal"}[5m])))',
                             "{{unit}}")],
-                    "ops", 0, 30, 12, 8),
-    loki_timeseries(16, "Error / warn rate",
+                    "ops", 0, 30, 12, 8,
+                    description="The 10 systemd units logging the most on the "
+                                "selected host. Identifies the source of a "
+                                "log-volume spike."),
+    loki_timeseries(18, "Error / warn rate",
                     [t_loki('sum(rate({hostname="$hostname",job="systemd-journal"} |~ "(?i)error"[5m]))',
                             "errors"),
                      t_loki('sum(rate({hostname="$hostname",job="systemd-journal"} |~ "(?i)warn"[5m]))',
                             "warnings", "B")],
-                    "ops", 12, 30, 12, 8),
-    loki_timeseries(17, "SSH failed-password attempts (24h count)",
+                    "ops", 12, 30, 12, 8,
+                    description="Journal lines matching 'error' and 'warn' "
+                                "per second on the selected host. Should sit "
+                                "near zero."),
+    loki_timeseries(19, "SSH failed-password attempts (24h count)",
                     [t_loki('sum(count_over_time({hostname="$hostname",job="systemd-journal",unit="ssh.service"} '
                             '|~ "Failed password"[24h]))', "fails")],
-                    "short", 0, 38, 24, 6),
+                    "short", 0, 38, 24, 6,
+                    description="Count of sshd 'Failed password' lines over "
+                                "the last 24h on the selected host. A "
+                                "sustained climb indicates a brute-force "
+                                "attempt."),
 ]
 
 # ── Alerts overview dashboard ────────────────────────────────────────────────

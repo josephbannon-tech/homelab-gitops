@@ -407,21 +407,18 @@ kube-prometheus-stack:
                 summary: "{{ $labels.instance }} {{ $labels.mountpoint }} critically full ({{ $value | printf \"%.0f\" }}% free)"
                 description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 5% free — writes will start failing. Free space immediately."
 
-    # Host resource pressure across the fleet: memory utilisation plus kernel
-    # PSI (Pressure Stall Information) for memory and I/O throttling, exposed
-    # by node_exporter's pressure collector. PSI may be absent inside the
-    # JBDNS01 LXC — those alerts simply won't fire there.
+    # Host resource pressure across the fleet, measured by kernel PSI (Pressure
+    # Stall Information) — the fraction of wall-clock time tasks spend stalled
+    # waiting on memory or I/O. PSI is used deliberately instead of a
+    # memory-utilisation alert: on this fleet 90%+ RAM use is normal and
+    # healthy (ZFS ARC on JBNAS01, the Minecraft JVM heap on JBVM03, guest
+    # allocation on the JBSRV01 hypervisor), and a MemAvailable-based alert
+    # cannot distinguish that from genuine exhaustion. PSI fires only on real
+    # contention. PSI may be absent inside the JBDNS01 LXC — harmless.
     node-resource-pressure:
       groups:
         - name: node.resource.alerts
           rules:
-            - alert: NodeMemoryHigh
-              expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
-              for: 15m
-              labels: {severity: warning, service: compute}
-              annotations:
-                summary: "{{ $labels.instance }} memory at {{ $value | printf \"%.0f\" }}% used"
-                description: "{{ $labels.instance }} has had under 10% memory available for >15m. Check for a leaking process or an undersized VM (`free -h`, `ps aux --sort=-%mem`)."
             - alert: NodeMemoryThrottled
               expr: rate(node_pressure_memory_stalled_seconds_total[5m]) > 0.10
               for: 15m

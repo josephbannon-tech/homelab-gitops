@@ -17,6 +17,11 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        # The image declares its user as the name "prometheus" (UID 101).
+        # runAsNonRoot cannot verify a non-numeric user, so pin the UID
+        # explicitly or the container fails with CreateContainerConfigError.
+        runAsUser: 101
+        runAsGroup: 101
         seccompProfile:
           type: RuntimeDefault
       containers:

@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Alerts firing right now that fall within this dashboard's scope. Empty is good \u2014 any row is a live incident for these services.",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "ZFS Pool Health",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -183,12 +186,13 @@ data:
         },
         {
           "id": 2,
-          "title": "JBNAS_SSD",
+          "title": "JBNAS_SSD pool",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "zpool health of JBNAS_SSD (mirror \u2014 SMB share + app data). ONLINE = healthy; DEGRADED/other = zpool reports a fault, investigate with `zpool status` on JBNAS01.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -212,7 +216,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DEGRADED",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "ONLINE",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -244,12 +264,13 @@ data:
         },
         {
           "id": 3,
-          "title": "JBNAS_MEDIA",
+          "title": "JBNAS_MEDIA pool",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "zpool health of JBNAS_MEDIA (the Plex library). This is a stripe pool with no parity \u2014 DEGRADED here means data loss is imminent, treat as a critical incident.",
           "gridPos": {
             "x": 6,
             "y": 8,
@@ -273,7 +294,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DEGRADED",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "ONLINE",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -311,6 +348,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Fraction of ZFS reads served from the in-RAM ARC cache. Normal above 90% (green); 70-90% yellow; below 70% red means cache pressure and slower reads.",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -376,6 +414,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Current size of the ZFS ARC cache in RAM. Informational, no threshold; ARC grows to use spare memory and shrinks under memory pressure.",
           "gridPos": {
             "x": 18,
             "y": 8,
@@ -427,9 +466,10 @@ data:
         },
         {
           "id": 6,
-          "title": "ZFS ARC Detail",
+          "title": "ZFS Pool Capacity",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -440,17 +480,18 @@ data:
         },
         {
           "id": 7,
-          "title": "ARC Utilisation",
-          "type": "gauge",
+          "title": "Data pool capacity used %",
+          "type": "bargauge",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Percentage full of each data pool (JBNAS_SSD, JBNAS_MEDIA). Yellow at 70%, red at 90% \u2014 a full ZFS pool degrades write performance and blocks snapshots. boot-pool is excluded.",
           "gridPos": {
             "x": 0,
             "y": 13,
-            "w": 8,
-            "h": 8
+            "w": 24,
+            "h": 6
           },
           "options": {
             "reduceOptions": {
@@ -458,8 +499,9 @@ data:
                 "lastNotNull"
               ]
             },
-            "showThresholdLabels": false,
-            "showThresholdMarkers": true
+            "orientation": "horizontal",
+            "displayMode": "gradient",
+            "valueMode": "color"
           },
           "fieldConfig": {
             "defaults": {
@@ -493,25 +535,39 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_zfs_arc_size{hostname=\"JBNAS01\"} / node_zfs_arc_c_max{hostname=\"JBNAS01\"} * 100",
-              "instant": true,
-              "legendFormat": "",
+              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"} / node_filesystem_size_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"})",
+              "legendFormat": "{{device}}",
               "refId": "A"
             }
           ]
         },
         {
           "id": 8,
+          "title": "ZFS ARC Detail",
+          "type": "row",
+          "collapsed": false,
+          "description": "",
+          "gridPos": {
+            "x": 0,
+            "y": 19,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 9,
           "title": "ARC Size vs Max",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "ZFS ARC size over time against its c_max ceiling and c_min floor. ARC riding at c_max is healthy (cache fully warmed); dropping toward c_min indicates memory pressure on the NAS.",
           "gridPos": {
-            "x": 8,
-            "y": 13,
-            "w": 16,
+            "x": 0,
+            "y": 20,
+            "w": 24,
             "h": 8
           },
           "options": {
@@ -574,29 +630,31 @@ data:
           ]
         },
         {
-          "id": 9,
+          "id": 10,
           "title": "ARC Hit/Miss Rate",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
-            "y": 21,
+            "y": 28,
             "w": 24,
             "h": 1
           },
           "panels": []
         },
         {
-          "id": 10,
+          "id": 11,
           "title": "ARC Demand Hits / Misses",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Per-second ARC demand hits vs misses for data and metadata. A rising miss rate means the working set no longer fits in ARC.",
           "gridPos": {
             "x": 0,
-            "y": 22,
+            "y": 29,
             "w": 24,
             "h": 8
           },
@@ -669,29 +727,31 @@ data:
           ]
         },
         {
-          "id": 11,
+          "id": 12,
           "title": "NAS Host Resources",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
-            "y": 30,
+            "y": 37,
             "w": 24,
             "h": 1
           },
           "panels": []
         },
         {
-          "id": 12,
+          "id": 13,
           "title": "NAS CPU %",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "JBNAS01 CPU utilisation over time. Sustained high values during scrubs or Plex transcodes are expected; otherwise it should sit low.",
           "gridPos": {
             "x": 0,
-            "y": 31,
+            "y": 38,
             "w": 12,
             "h": 8
           },
@@ -737,16 +797,17 @@ data:
           ]
         },
         {
-          "id": 13,
+          "id": 14,
           "title": "NAS Memory",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "JBNAS01 memory used vs total. Used tracking close to Total is normal \u2014 ZFS ARC claims free RAM and yields it on demand.",
           "gridPos": {
             "x": 12,
-            "y": 31,
+            "y": 38,
             "w": 12,
             "h": 8
           },

@@ -54,6 +54,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -70,6 +71,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Alerts firing right now that fall within this dashboard's scope. Empty is good \u2014 any row is a live incident for these services.",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -189,6 +191,7 @@ data:
           "title": "Snapshot",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -205,10 +208,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Time since the selected host last booted. Informational; a reset to near-zero means the host rebooted.",
           "gridPos": {
             "x": 0,
             "y": 8,
-            "w": 5,
+            "w": 4,
             "h": 4
           },
           "options": {
@@ -256,16 +260,17 @@ data:
         },
         {
           "id": 3,
-          "title": "Load (1m)",
+          "title": "Load average (1m)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "1-minute kernel load average. Compare to the host's vCPU count (see CPU cores): load near the core count means fully busy, well above means CPU saturation and run-queue queueing.",
           "gridPos": {
-            "x": 5,
+            "x": 4,
             "y": 8,
-            "w": 5,
+            "w": 4,
             "h": 4
           },
           "options": {
@@ -313,16 +318,75 @@ data:
         },
         {
           "id": 4,
+          "title": "CPU cores",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Number of vCPUs on the selected host \u2014 the denominator for the load-average figures. Load above this number means the CPU is oversubscribed.",
+          "gridPos": {
+            "x": 8,
+            "y": 8,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "count(node_cpu_seconds_total{hostname=\"$hostname\",mode=\"idle\"})",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 5,
           "title": "CPU busy %",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "CPU utilisation across all cores (5m average). Normal below 70%; red at 90% means the host is CPU-bound.",
           "gridPos": {
-            "x": 10,
+            "x": 12,
             "y": 8,
-            "w": 5,
+            "w": 4,
             "h": 4
           },
           "options": {
@@ -377,17 +441,18 @@ data:
           ]
         },
         {
-          "id": 5,
+          "id": 6,
           "title": "Free RAM %",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Available memory as a percentage of total. Green above 25%; below 10% (red) the host is close to OOM.",
           "gridPos": {
-            "x": 15,
+            "x": 16,
             "y": 8,
-            "w": 5,
+            "w": 4,
             "h": 4
           },
           "options": {
@@ -442,13 +507,14 @@ data:
           ]
         },
         {
-          "id": 6,
+          "id": 7,
           "title": "Root FS free %",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Free space on the root filesystem. Green above 20%; below 10% (red) risks the host filling its disk.",
           "gridPos": {
             "x": 20,
             "y": 8,
@@ -507,10 +573,11 @@ data:
           ]
         },
         {
-          "id": 7,
+          "id": 8,
           "title": "CPU & Memory",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -520,17 +587,18 @@ data:
           "panels": []
         },
         {
-          "id": 8,
+          "id": 9,
           "title": "CPU usage by mode",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "CPU time by mode (user/system/iowait/...), normalised per core and stacked. A tall iowait band points to disk pressure, not CPU.",
           "gridPos": {
             "x": 0,
             "y": 13,
-            "w": 12,
+            "w": 8,
             "h": 8
           },
           "options": {
@@ -575,17 +643,18 @@ data:
           ]
         },
         {
-          "id": 9,
+          "id": 10,
           "title": "Memory breakdown",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Memory split into used, cache/buffers and free. Cache+Buffers is reclaimable \u2014 only sustained high Used with low Free is real pressure.",
           "gridPos": {
-            "x": 12,
+            "x": 8,
             "y": 13,
-            "w": 12,
+            "w": 8,
             "h": 8
           },
           "options": {
@@ -648,10 +717,85 @@ data:
           ]
         },
         {
-          "id": 10,
+          "id": 11,
+          "title": "Load average (1m/5m/15m)",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Kernel load average over 1/5/15m windows. Compare against the host's vCPU count: lines riding above the core count mean sustained CPU saturation.",
+          "gridPos": {
+            "x": 16,
+            "y": 13,
+            "w": 8,
+            "h": 8
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load1{hostname=\"$hostname\"}",
+              "legendFormat": "1m",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load5{hostname=\"$hostname\"}",
+              "legendFormat": "5m",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_load15{hostname=\"$hostname\"}",
+              "legendFormat": "15m",
+              "refId": "C"
+            }
+          ]
+        },
+        {
+          "id": 12,
           "title": "Disk & Network",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -661,13 +805,14 @@ data:
           "panels": []
         },
         {
-          "id": 11,
+          "id": 13,
           "title": "Disk I/O (Bps)",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Per-device disk read and write throughput (5m rate). Loop and device-mapper devices are excluded.",
           "gridPos": {
             "x": 0,
             "y": 22,
@@ -725,13 +870,14 @@ data:
           ]
         },
         {
-          "id": 12,
+          "id": 14,
           "title": "Network rx/tx (Bps)",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Per-interface network receive and transmit throughput (5m rate). Loopback and virtual/CNI interfaces are excluded.",
           "gridPos": {
             "x": 12,
             "y": 22,
@@ -789,13 +935,14 @@ data:
           ]
         },
         {
-          "id": 13,
+          "id": 15,
           "title": "Filesystem usage % (per mountpoint)",
           "type": "bargauge",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Percentage used per mountpoint on the selected host. Yellow at 70%, red at 90% \u2014 a full filesystem blocks writes.",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -851,10 +998,11 @@ data:
           ]
         },
         {
-          "id": 14,
+          "id": 16,
           "title": "Logs (Loki, journal)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 36,
@@ -864,13 +1012,14 @@ data:
           "panels": []
         },
         {
-          "id": 15,
+          "id": 17,
           "title": "Top 10 noisy units (lines/sec)",
           "type": "timeseries",
           "datasource": {
             "type": "loki",
             "uid": "loki"
           },
+          "description": "The 10 systemd units logging the most on the selected host. Identifies the source of a log-volume spike.",
           "gridPos": {
             "x": 0,
             "y": 37,
@@ -920,13 +1069,14 @@ data:
           ]
         },
         {
-          "id": 16,
+          "id": 18,
           "title": "Error / warn rate",
           "type": "timeseries",
           "datasource": {
             "type": "loki",
             "uid": "loki"
           },
+          "description": "Journal lines matching 'error' and 'warn' per second on the selected host. Should sit near zero.",
           "gridPos": {
             "x": 12,
             "y": 37,
@@ -986,13 +1136,14 @@ data:
           ]
         },
         {
-          "id": 17,
+          "id": 19,
           "title": "SSH failed-password attempts (24h count)",
           "type": "timeseries",
           "datasource": {
             "type": "loki",
             "uid": "loki"
           },
+          "description": "Count of sshd 'Failed password' lines over the last 24h on the selected host. A sustained climb indicates a brute-force attempt.",
           "gridPos": {
             "x": 0,
             "y": 45,

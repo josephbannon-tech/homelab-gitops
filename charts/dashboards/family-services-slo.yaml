@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Alerts firing right now that fall within this dashboard's scope. Empty is good \u2014 any row is a live incident for these services.",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "30-Day SLO Compliance (target lines: red=below, green=above)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,10 +192,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Plex availability over the trailing 30 days against the 99.5% target. Green = meeting SLO, yellow = within 0.1% of the line, red = SLO breached.",
           "gridPos": {
             "x": 0,
             "y": 8,
-            "w": 6,
+            "w": 5,
             "h": 4
           },
           "options": {
@@ -254,10 +258,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Minecraft server availability over the trailing 30 days against the 99.0% target. Red = the 30-day SLO is breached.",
           "gridPos": {
-            "x": 6,
+            "x": 5,
             "y": 8,
-            "w": 6,
+            "w": 5,
             "h": 4
           },
           "options": {
@@ -313,16 +318,17 @@ data:
         },
         {
           "id": 4,
-          "title": "Pi-hole DNS (target 99.9%)",
+          "title": "Pi-hole DNS (real probe, 99.9%)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Pi-hole DNS availability from the blackbox UDP/53 probe (real user-facing resolution), trailing 30 days vs the 99.9% target \u2014 not the exporter-scrape signal.",
           "gridPos": {
-            "x": 12,
+            "x": 10,
             "y": 8,
-            "w": 6,
+            "w": 5,
             "h": 4
           },
           "options": {
@@ -369,7 +375,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:pihole:availability:ratio_30d * 100",
+              "expr": "slo:pihole_dns:availability:ratio_30d * 100",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -384,10 +390,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "JBNAS01 reachability over the trailing 30 days against the 99.9% target. Red = the NAS missed its SLO.",
           "gridPos": {
-            "x": 18,
+            "x": 15,
             "y": 8,
-            "w": 6,
+            "w": 5,
             "h": 4
           },
           "options": {
@@ -443,9 +450,76 @@ data:
         },
         {
           "id": 6,
+          "title": "Tailscale (target 99.0%)",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Tailscale mesh availability over the trailing 30 days against the 99.0% target \u2014 covers remote access to the estate.",
+          "gridPos": {
+            "x": 20,
+            "y": 8,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 98.9
+                  },
+                  {
+                    "color": "green",
+                    "value": 99.0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "slo:tailscale:availability:ratio_30d * 100",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 7,
           "title": "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -455,17 +529,18 @@ data:
           "panels": []
         },
         {
-          "id": 7,
+          "id": 8,
           "title": "Plex burn rate",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = consuming budget exactly on pace; above 6 is a warning, above 14.4 is critical and the 30-day SLO is at risk.",
           "gridPos": {
             "x": 0,
             "y": 13,
-            "w": 8,
+            "w": 6,
             "h": 7
           },
           "options": {
@@ -528,17 +603,18 @@ data:
           ]
         },
         {
-          "id": 8,
+          "id": 9,
           "title": "Minecraft burn rate",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = consuming budget exactly on pace; above 6 is a warning, above 14.4 is critical and the 30-day SLO is at risk.",
           "gridPos": {
-            "x": 8,
+            "x": 6,
             "y": 13,
-            "w": 8,
+            "w": 6,
             "h": 7
           },
           "options": {
@@ -601,17 +677,18 @@ data:
           ]
         },
         {
-          "id": 9,
-          "title": "Pi-hole burn rate",
+          "id": 10,
+          "title": "Pi-hole DNS burn rate",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = consuming budget exactly on pace; above 6 is a warning, above 14.4 is critical and the 30-day SLO is at risk.",
           "gridPos": {
-            "x": 16,
+            "x": 12,
             "y": 13,
-            "w": 8,
+            "w": 6,
             "h": 7
           },
           "options": {
@@ -649,7 +726,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:pihole:burn_rate:5m",
+              "expr": "slo:pihole_dns:burn_rate:5m",
               "legendFormat": "5m",
               "refId": "A"
             },
@@ -658,7 +735,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:pihole:burn_rate:1h",
+              "expr": "slo:pihole_dns:burn_rate:1h",
               "legendFormat": "1h",
               "refId": "B"
             },
@@ -667,17 +744,92 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:pihole:burn_rate:6h",
+              "expr": "slo:pihole_dns:burn_rate:6h",
               "legendFormat": "6h",
               "refId": "C"
             }
           ]
         },
         {
-          "id": 10,
+          "id": 11,
+          "title": "Tailscale burn rate",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = consuming budget exactly on pace; above 6 is a warning, above 14.4 is critical and the 30-day SLO is at risk.",
+          "gridPos": {
+            "x": 18,
+            "y": 13,
+            "w": 6,
+            "h": 7
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "slo:tailscale:burn_rate:5m",
+              "legendFormat": "5m",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "slo:tailscale:burn_rate:1h",
+              "legendFormat": "1h",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "slo:tailscale:burn_rate:6h",
+              "legendFormat": "6h",
+              "refId": "C"
+            }
+          ]
+        },
+        {
+          "id": 12,
           "title": "Plex",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 20,
@@ -687,13 +839,14 @@ data:
           "panels": []
         },
         {
-          "id": 11,
-          "title": "Server up",
+          "id": 13,
+          "title": "Plex server",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "UP = the plex-exporter scrape succeeded (the Plex Media Server process is responding). DOWN = Plex is unreachable.",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -717,7 +870,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -748,13 +917,14 @@ data:
           ]
         },
         {
-          "id": 12,
+          "id": 14,
           "title": "Library size",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Total size of the Plex media library. Informational, no threshold; it should only grow.",
           "gridPos": {
             "x": 6,
             "y": 21,
@@ -805,13 +975,14 @@ data:
           ]
         },
         {
-          "id": 13,
+          "id": 15,
           "title": "Estimated bandwidth out (5m rate)",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Outbound bandwidth Plex is serving (5m rate) \u2014 a proxy for active streaming load.",
           "gridPos": {
             "x": 12,
             "y": 21,
@@ -860,10 +1031,11 @@ data:
           ]
         },
         {
-          "id": 15,
+          "id": 16,
           "title": "Minecraft",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 25,
@@ -873,17 +1045,18 @@ data:
           "panels": []
         },
         {
-          "id": 16,
-          "title": "Server healthy",
+          "id": 17,
+          "title": "Minecraft server",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "OK = the Minecraft server responded to a status ping. FAIL = the server is down or not accepting connections.",
           "gridPos": {
             "x": 0,
             "y": 26,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -903,7 +1076,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "FAIL",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "OK",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -934,17 +1123,18 @@ data:
           ]
         },
         {
-          "id": 17,
+          "id": 18,
           "title": "Players online",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Players currently connected to the Minecraft server. Informational; the server is capped at minecraft_status_players_max_count slots.",
           "gridPos": {
-            "x": 4,
+            "x": 6,
             "y": 26,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -991,63 +1181,6 @@ data:
           ]
         },
         {
-          "id": 18,
-          "title": "Max players",
-          "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "gridPos": {
-            "x": 8,
-            "y": 26,
-            "w": 4,
-            "h": 4
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "textMode": "auto"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "text",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "minecraft_status_players_max_count",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ]
-        },
-        {
           "id": 19,
           "title": "Server response time",
           "type": "timeseries",
@@ -1055,6 +1188,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Server status-ping round-trip time. Rising latency points to CPU pressure or world lag on JBVM03.",
           "gridPos": {
             "x": 12,
             "y": 26,
@@ -1107,6 +1241,7 @@ data:
           "title": "Pi-hole DNS",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -1117,16 +1252,17 @@ data:
         },
         {
           "id": 21,
-          "title": "DNS up (scrape)",
+          "title": "Pi-hole exporter",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "UP = the pihole-exporter scrape succeeded. This is the exporter-scrape signal, NOT real DNS resolution \u2014 the real probe drives the SLO tile above.",
           "gridPos": {
             "x": 0,
             "y": 31,
-            "w": 4,
+            "w": 6,
             "h": 4
           },
           "options": {
@@ -1146,7 +1282,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -1184,10 +1336,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Total DNS queries Pi-hole has handled today. Informational; resets at midnight.",
           "gridPos": {
-            "x": 4,
+            "x": 6,
             "y": 31,
-            "w": 4,
+            "w": 3,
             "h": 4
           },
           "options": {
@@ -1241,10 +1394,11 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Share of today's DNS queries blocked as ads/trackers. Informational, no threshold; typically 10-25% for this estate's blocklists.",
           "gridPos": {
-            "x": 8,
+            "x": 9,
             "y": 31,
-            "w": 4,
+            "w": 3,
             "h": 4
           },
           "options": {
@@ -1298,6 +1452,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "DNS query rate Pi-hole is serving (5m rate). A drop to zero with the exporter UP means clients stopped querying.",
           "gridPos": {
             "x": 12,
             "y": 31,
@@ -1350,6 +1505,7 @@ data:
           "title": "NAS / Storage Health",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 35,
@@ -1366,6 +1522,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "UP = the node-exporter on JBNAS01 is being scraped \u2014 the NAS is up and on the network. DOWN = NAS unreachable.",
           "gridPos": {
             "x": 0,
             "y": 36,
@@ -1389,7 +1546,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -1427,6 +1600,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Count of data pools (JBNAS_SSD, JBNAS_MEDIA) reporting ONLINE. Expect 2; anything less means a pool is degraded or faulted.",
           "gridPos": {
             "x": 4,
             "y": 36,
@@ -1492,6 +1666,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "ZFS ARC cache hit ratio on the NAS. Normal above 90%; below 70% (red) means reads are missing cache.",
           "gridPos": {
             "x": 8,
             "y": 36,
@@ -1551,12 +1726,13 @@ data:
         },
         {
           "id": 29,
-          "title": "Drives with SMART warning (red = action needed)",
+          "title": "Drives with SMART warning",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Count of drives where smartctl exit_status > 0. The exit status is a bitfield \u2014 0 is the only clean value, any non-zero means SMART flagged the drive: investigate.",
           "gridPos": {
             "x": 12,
             "y": 36,
@@ -1618,6 +1794,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Count of Tailscale nodes currently reporting up. Informational; a drop means a node left the mesh.",
           "gridPos": {
             "x": 18,
             "y": 36,

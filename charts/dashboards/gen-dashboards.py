@@ -538,71 +538,122 @@ zfs_panels = [
 
 # ── Dashboard 3: Family Services SLO ─────────────────────────────────────────
 
+_BURN_DESC = ("SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = "
+              "consuming budget exactly on pace; above 6 is a warning, above "
+              "14.4 is critical and the 30-day SLO is at risk.")
+
 slo_panels = [
     row(1, "30-Day SLO Compliance (target lines: red=below, green=above)", 0),
     stat_with_target_color(2, "Plex (target 99.5%)",
-        "slo:plex:availability:ratio_30d * 100", "percent", 0, 1, 6, 4, 99.5),
+        "slo:plex:availability:ratio_30d * 100", "percent", 0, 1, 5, 4, 99.5,
+        description="Plex availability over the trailing 30 days against the "
+                    "99.5% target. Green = meeting SLO, yellow = within 0.1% "
+                    "of the line, red = SLO breached."),
     stat_with_target_color(3, "Minecraft (target 99.0%)",
-        "slo:minecraft:availability:ratio_30d * 100", "percent", 6, 1, 6, 4, 99.0),
-    stat_with_target_color(4, "Pi-hole DNS (target 99.9%)",
-        "slo:pihole:availability:ratio_30d * 100", "percent", 12, 1, 6, 4, 99.9),
+        "slo:minecraft:availability:ratio_30d * 100", "percent", 5, 1, 5, 4, 99.0,
+        description="Minecraft server availability over the trailing 30 days "
+                    "against the 99.0% target. Red = the 30-day SLO is "
+                    "breached."),
+    stat_with_target_color(4, "Pi-hole DNS (real probe, 99.9%)",
+        "slo:pihole_dns:availability:ratio_30d * 100", "percent", 10, 1, 5, 4, 99.9,
+        description="Pi-hole DNS availability from the blackbox UDP/53 probe "
+                    "(real user-facing resolution), trailing 30 days vs the "
+                    "99.9% target — not the exporter-scrape signal."),
     stat_with_target_color(5, "NAS reachable (target 99.9%)",
-        "slo:nas:availability:ratio_30d * 100", "percent", 18, 1, 6, 4, 99.9),
+        "slo:nas:availability:ratio_30d * 100", "percent", 15, 1, 5, 4, 99.9,
+        description="JBNAS01 reachability over the trailing 30 days against "
+                    "the 99.9% target. Red = the NAS missed its SLO."),
+    stat_with_target_color(6, "Tailscale (target 99.0%)",
+        "slo:tailscale:availability:ratio_30d * 100", "percent", 20, 1, 4, 4, 99.0,
+        description="Tailscale mesh availability over the trailing 30 days "
+                    "against the 99.0% target — covers remote access to the "
+                    "estate."),
 
-    row(6, "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)", 5),
-    timeseries(7, "Plex burn rate",
+    row(7, "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)", 5),
+    timeseries(8, "Plex burn rate",
                [t("slo:plex:burn_rate:5m", "5m"),
                 t("slo:plex:burn_rate:1h", "1h", "B"),
                 t("slo:plex:burn_rate:6h", "6h", "C")],
-               "short", 0, 6, 8, 7, fill=0),
-    timeseries(8, "Minecraft burn rate",
+               "short", 0, 6, 6, 7, fill=0, description=_BURN_DESC),
+    timeseries(9, "Minecraft burn rate",
                [t("slo:minecraft:burn_rate:5m", "5m"),
                 t("slo:minecraft:burn_rate:1h", "1h", "B"),
                 t("slo:minecraft:burn_rate:6h", "6h", "C")],
-               "short", 8, 6, 8, 7, fill=0),
-    timeseries(9, "Pi-hole burn rate",
-               [t("slo:pihole:burn_rate:5m", "5m"),
-                t("slo:pihole:burn_rate:1h", "1h", "B"),
-                t("slo:pihole:burn_rate:6h", "6h", "C")],
-               "short", 16, 6, 8, 7, fill=0),
+               "short", 6, 6, 6, 7, fill=0, description=_BURN_DESC),
+    timeseries(10, "Pi-hole DNS burn rate",
+               [t("slo:pihole_dns:burn_rate:5m", "5m"),
+                t("slo:pihole_dns:burn_rate:1h", "1h", "B"),
+                t("slo:pihole_dns:burn_rate:6h", "6h", "C")],
+               "short", 12, 6, 6, 7, fill=0, description=_BURN_DESC),
+    timeseries(11, "Tailscale burn rate",
+               [t("slo:tailscale:burn_rate:5m", "5m"),
+                t("slo:tailscale:burn_rate:1h", "1h", "B"),
+                t("slo:tailscale:burn_rate:6h", "6h", "C")],
+               "short", 18, 6, 6, 7, fill=0, description=_BURN_DESC),
 
-    row(10, "Plex", 13),
-    stat(11, "Server up", 'up{job="plex"}', "short", 0, 14, 6, 4,
-         thresholds=ZERO_RED_ONE_GREEN),
-    stat(12, "Library size",
+    row(12, "Plex", 13),
+    stat(13, "Plex server", 'up{job="plex"}', "short", 0, 14, 6, 4,
+         thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
+         description="UP = the plex-exporter scrape succeeded (the Plex Media "
+                     "Server process is responding). DOWN = Plex is "
+                     "unreachable."),
+    stat(14, "Library size",
          'sum(library_storage_total{server_type="plex"})', "bytes", 6, 14, 6, 4,
-         thresholds=GREEN_ONLY),
-    timeseries(13, "Estimated bandwidth out (5m rate)",
+         thresholds=GREEN_ONLY,
+         description="Total size of the Plex media library. Informational, "
+                     "no threshold; it should only grow."),
+    timeseries(15, "Estimated bandwidth out (5m rate)",
                [t('rate(estimated_transmit_bytes_total{server_type="plex"}[5m])',
                   "{{server}}")],
-               "Bps", 12, 14, 12, 4),
+               "Bps", 12, 14, 12, 4,
+               description="Outbound bandwidth Plex is serving (5m rate) — a "
+                           "proxy for active streaming load."),
 
-    row(15, "Minecraft", 18),
-    stat(16, "Server healthy", "minecraft_status_healthy", "short", 0, 19, 4, 4,
-         thresholds=ZERO_RED_ONE_GREEN),
-    stat(17, "Players online", "minecraft_status_players_online_count",
-         "short", 4, 19, 4, 4, thresholds=GREEN_ONLY),
-    stat(18, "Max players", "minecraft_status_players_max_count",
-         "short", 8, 19, 4, 4, thresholds=NO_THRESH),
+    row(16, "Minecraft", 18),
+    stat(17, "Minecraft server", "minecraft_status_healthy", "short", 0, 19, 6, 4,
+         thresholds=ZERO_RED_ONE_GREEN, mappings=OK_FAIL,
+         description="OK = the Minecraft server responded to a status ping. "
+                     "FAIL = the server is down or not accepting connections."),
+    stat(18, "Players online", "minecraft_status_players_online_count",
+         "short", 6, 19, 6, 4, thresholds=GREEN_ONLY,
+         description="Players currently connected to the Minecraft server. "
+                     "Informational; the server is capped at "
+                     "minecraft_status_players_max_count slots."),
     timeseries(19, "Server response time",
                [t("minecraft_status_response_time_seconds", "ping")],
-               "s", 12, 19, 12, 4),
+               "s", 12, 19, 12, 4,
+               description="Server status-ping round-trip time. Rising "
+                           "latency points to CPU pressure or world lag on "
+                           "JBVM03."),
 
     row(20, "Pi-hole DNS", 23),
-    stat(21, "DNS up (scrape)", 'up{job="pihole"}', "short", 0, 24, 4, 4,
-         thresholds=ZERO_RED_ONE_GREEN),
+    stat(21, "Pi-hole exporter", 'up{job="pihole"}', "short", 0, 24, 6, 4,
+         thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
+         description="UP = the pihole-exporter scrape succeeded. This is the "
+                     "exporter-scrape signal, NOT real DNS resolution — the "
+                     "real probe drives the SLO tile above."),
     stat(22, "Queries today", "sum(pihole_dns_queries_today)",
-         "short", 4, 24, 4, 4, thresholds=GREEN_ONLY),
+         "short", 6, 24, 3, 4, thresholds=GREEN_ONLY,
+         description="Total DNS queries Pi-hole has handled today. "
+                     "Informational; resets at midnight."),
     stat(23, "Blocked %", "avg(pihole_ads_percentage_today)",
-         "percent", 8, 24, 4, 4, thresholds=NO_THRESH),
+         "percent", 9, 24, 3, 4, thresholds=NO_THRESH,
+         description="Share of today's DNS queries blocked as ads/trackers. "
+                     "Informational, no threshold; typically 10-25% for this "
+                     "estate's blocklists."),
     timeseries(24, "Queries/sec (5m rate)",
                [t("rate(pihole_dns_queries_all_types[5m])", "qps")],
-               "ops", 12, 24, 12, 4),
+               "ops", 12, 24, 12, 4,
+               description="DNS query rate Pi-hole is serving (5m rate). A "
+                           "drop to zero with the exporter UP means clients "
+                           "stopped querying."),
 
     row(25, "NAS / Storage Health", 28),
     stat(26, "NAS reachable",
          f'up{{job="node-exporter-external", hostname="{NAS}"}}',
-         "short", 0, 29, 4, 4, thresholds=ZERO_RED_ONE_GREEN),
+         "short", 0, 29, 4, 4, thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
+         description="UP = the node-exporter on JBNAS01 is being scraped — the "
+                     "NAS is up and on the network. DOWN = NAS unreachable."),
     # Filter boot-pool out — only data pools (JBNAS_SSD, JBNAS_MEDIA) count.
     stat(27, "Data pools online",
          f'count(node_zfs_zpool_state{{hostname="{NAS}", state="online", '
@@ -611,17 +662,27 @@ slo_panels = [
          thresholds={"mode": "absolute",
                      "steps": [{"color": "red", "value": None},
                                {"color": "yellow", "value": 1},
-                               {"color": "green", "value": 2}]}),
+                               {"color": "green", "value": 2}]},
+         description="Count of data pools (JBNAS_SSD, JBNAS_MEDIA) reporting "
+                     "ONLINE. Expect 2; anything less means a pool is "
+                     "degraded or faulted."),
     stat(28, "ARC hit ratio", arc_hit_ratio(NAS),
-         "percent", 8, 29, 4, 4, thresholds=ARC_RATIO_THRESH),
+         "percent", 8, 29, 4, 4, thresholds=ARC_RATIO_THRESH,
+         description="ZFS ARC cache hit ratio on the NAS. Normal above 90%; "
+                     "below 70% (red) means reads are missing cache."),
     # Drives with smartctl exit_status > 0 are flagged. Exit 64 means
     # "DISK FAILING" per smartctl's bitmask. Real signal even at value 1+.
-    stat(29, "Drives with SMART warning (red = action needed)",
+    stat(29, "Drives with SMART warning",
          smart_warning_count(),
-         "short", 12, 29, 6, 4, thresholds=ZERO_GREEN_ONE_RED),
+         "short", 12, 29, 6, 4, thresholds=ZERO_GREEN_ONE_RED,
+         description="Count of drives where smartctl exit_status > 0. The "
+                     "exit status is a bitfield — 0 is the only clean value, "
+                     "any non-zero means SMART flagged the drive: investigate."),
     stat(30, "Tailscale nodes up",
          'count(up{job="tailscale-nodes"} == 1)', "short", 18, 29, 6, 4,
-         thresholds=GREEN_ONLY),
+         thresholds=GREEN_ONLY,
+         description="Count of Tailscale nodes currently reporting up. "
+                     "Informational; a drop means a node left the mesh."),
 ]
 
 # ── Dashboard 4: Capacity / Growth / Backup-DR ───────────────────────────────

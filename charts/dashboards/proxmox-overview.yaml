@@ -38,6 +38,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -54,6 +55,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -173,6 +175,7 @@ data:
           "title": "JBSRV01 Host",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -189,6 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -254,6 +258,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 6,
             "y": 8,
@@ -319,6 +324,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 8,
@@ -376,6 +382,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 18,
             "y": 8,
@@ -430,6 +437,7 @@ data:
           "title": "Guest Status",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -446,6 +454,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 13,
@@ -508,6 +517,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 13,
@@ -567,6 +577,7 @@ data:
           "title": "CPU & Memory Over Time",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -583,6 +594,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 22,
@@ -638,6 +650,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 22,
@@ -690,6 +703,7 @@ data:
           "title": "Disk & Network I/O",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -706,6 +720,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 31,
@@ -761,6 +776,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 31,
@@ -816,6 +832,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 39,
@@ -871,6 +888,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 39,
@@ -923,6 +941,7 @@ data:
           "title": "Proxmox Storage",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 47,
@@ -939,6 +958,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 48,
@@ -1001,6 +1021,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 48,

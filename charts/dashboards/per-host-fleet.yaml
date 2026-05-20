@@ -54,6 +54,7 @@ data:
           "title": "Active alerts \u2014 this dashboard's scope",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -70,6 +71,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 1,
@@ -189,6 +191,7 @@ data:
           "title": "Snapshot",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 7,
@@ -205,6 +208,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -262,6 +266,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 5,
             "y": 8,
@@ -319,6 +324,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 10,
             "y": 8,
@@ -384,6 +390,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 15,
             "y": 8,
@@ -449,6 +456,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 20,
             "y": 8,
@@ -511,6 +519,7 @@ data:
           "title": "CPU & Memory",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 12,
@@ -527,6 +536,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 13,
@@ -582,6 +592,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 13,
@@ -652,6 +663,7 @@ data:
           "title": "Disk & Network",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -668,6 +680,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 22,
@@ -732,6 +745,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 22,
@@ -796,6 +810,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 30,
@@ -855,6 +870,7 @@ data:
           "title": "Logs (Loki, journal)",
           "type": "row",
           "collapsed": false,
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 36,
@@ -871,6 +887,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 37,
@@ -927,6 +944,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 12,
             "y": 37,
@@ -993,6 +1011,7 @@ data:
             "type": "loki",
             "uid": "loki"
           },
+          "description": "",
           "gridPos": {
             "x": 0,
             "y": 45,

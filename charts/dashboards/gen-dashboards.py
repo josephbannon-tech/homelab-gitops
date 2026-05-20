@@ -58,15 +58,17 @@ def dashboard(title, uid, panels, templating=None, refresh="30s",
         "panels": panels, "links": []
     }
 
-def row(id, title, y):
+def row(id, title, y, description=""):
     return {"id": id, "title": title, "type": "row", "collapsed": False,
+            "description": description,
             "gridPos": {"x": 0, "y": y, "w": 24, "h": 1}, "panels": []}
 
 def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None,
-         color_mode="background", ds=None):
+         color_mode="background", ds=None, description="", mappings=None):
     ds = ds or DS
     return {
         "id": id, "title": title, "type": "stat", "datasource": ds,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
@@ -75,7 +77,7 @@ def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None,
         },
         "fieldConfig": {
             "defaults": {
-                "unit": unit, "mappings": [],
+                "unit": unit, "mappings": mappings or [],
                 "thresholds": thresholds or {
                     "mode": "absolute",
                     "steps": [{"color": "green", "value": None},
@@ -90,9 +92,10 @@ def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None,
     }
 
 def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none",
-               ds=None):
+               ds=None, description=""):
     return {
         "id": id, "title": title, "type": "timeseries", "datasource": ds or DS,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "tooltip": {"mode": "multi", "sort": "desc"},
@@ -111,9 +114,10 @@ def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none",
     }
 
 def bargauge(id, title, targets, unit, x, y, w, h, min_val=0, max_val=100,
-             ds=None):
+             ds=None, description=""):
     return {
         "id": id, "title": title, "type": "bargauge", "datasource": ds or DS,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "reduceOptions": {"calcs": ["lastNotNull"]},
@@ -136,10 +140,11 @@ def bargauge(id, title, targets, unit, x, y, w, h, min_val=0, max_val=100,
     }
 
 def gauge(id, title, expr, unit, x, y, w, h, min_val=0, max_val=100,
-          thresholds=None, ds=None):
+          thresholds=None, ds=None, description=""):
     ds = ds or DS
     return {
         "id": id, "title": title, "type": "gauge", "datasource": ds,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "reduceOptions": {"calcs": ["lastNotNull"]},
@@ -161,16 +166,18 @@ def gauge(id, title, expr, unit, x, y, w, h, min_val=0, max_val=100,
                      "legendFormat": "", "refId": "A"}]
     }
 
-def text_panel(id, title, content, x, y, w, h, mode="markdown"):
+def text_panel(id, title, content, x, y, w, h, mode="markdown", description=""):
     return {
         "id": id, "title": title, "type": "text",
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {"mode": mode, "content": content}
     }
 
-def table(id, title, targets, x, y, w, h, ds=None):
+def table(id, title, targets, x, y, w, h, ds=None, description=""):
     return {
         "id": id, "title": title, "type": "table", "datasource": ds or DS,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {"showHeader": True},
         "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": []},
@@ -203,12 +210,13 @@ WARN_THRESH = {"mode": "absolute",
                "steps": [{"color": "green", "value": None},
                          {"color": "orange", "value": 1}]}
 
-def alerts_table(id, title, x, y, w, h, selector=""):
+def alerts_table(id, title, x, y, w, h, selector="", description=""):
     """Table of firing alerts over the ALERTS metric. ``selector`` is an extra
     label-matcher fragment, e.g. ``', service=~"plex|nas"'``."""
     expr = 'ALERTS{alertstate="firing"%s}' % selector
     return {
         "id": id, "title": title, "type": "table", "datasource": DS,
+        "description": description,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {"showHeader": True,
                     "sortBy": [{"displayName": "Severity", "desc": False}]},
@@ -274,9 +282,26 @@ ARC_RATIO_THRESH = {
               {"color": "green",  "value": 90}],
 }
 
-def stat_with_target_color(id, title, expr, unit, x, y, w, h, target_pct):
+def value_map(pairs):
+    """pairs: {"0": ("DOWN","red"), "1": ("UP","green")} -> Grafana mapping list.
+
+    Builds the ``fieldConfig.defaults.mappings`` structure so a numeric stat
+    renders a word + colour instead of a bare 0/1. Threshold still drives the
+    background; the mapping drives the displayed text."""
+    return [{"type": "value", "options": {
+        k: {"text": text, "color": color, "index": i}
+        for i, (k, (text, color)) in enumerate(pairs.items())
+    }}]
+
+UP_DOWN     = value_map({"0": ("DOWN", "red"),     "1": ("UP", "green")})
+ONLINE_DEG  = value_map({"0": ("DEGRADED", "red"), "1": ("ONLINE", "green")})
+OK_FAIL     = value_map({"0": ("FAIL", "red"),     "1": ("OK", "green")})
+
+def stat_with_target_color(id, title, expr, unit, x, y, w, h, target_pct,
+                           description=""):
     """Stat panel: red below target, yellow within 0.1% of target, green above."""
-    return stat(id, title, expr, unit, x, y, w, h, thresholds={
+    return stat(id, title, expr, unit, x, y, w, h, description=description,
+                thresholds={
         "mode": "absolute",
         "steps": [
             {"color": "red", "value": None},
@@ -285,13 +310,17 @@ def stat_with_target_color(id, title, expr, unit, x, y, w, h, target_pct):
         ]
     })
 
-def stat_loki(id, title, expr, unit, x, y, w, h, thresholds=None):
+def stat_loki(id, title, expr, unit, x, y, w, h, thresholds=None,
+              description="", mappings=None):
     """Loki-backed stat. Pins datasource at panel level (per-target is overridden)."""
     return stat(id, title, expr, unit, x, y, w, h,
-                thresholds=thresholds, ds=LOKI_DS)
+                thresholds=thresholds, ds=LOKI_DS,
+                description=description, mappings=mappings)
 
-def loki_timeseries(id, title, targets, unit, x, y, w, h, fill=10):
-    return timeseries(id, title, targets, unit, x, y, w, h, fill=fill, ds=LOKI_DS)
+def loki_timeseries(id, title, targets, unit, x, y, w, h, fill=10,
+                    description=""):
+    return timeseries(id, title, targets, unit, x, y, w, h, fill=fill,
+                      ds=LOKI_DS, description=description)
 
 # ── Reusable query helpers ───────────────────────────────────────────────────
 
@@ -523,12 +552,13 @@ BACKUP_JOBS = [
     ('name="nas-dropbox-mover"',              "NAS dropbox mover",    180,    600),
 ]
 
-def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s):
+def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,
+                    description=""):
     """Stat tile showing seconds since last backup heartbeat. Clamp guards
     against clock skew (TrueNAS time vs Prometheus time)."""
     return stat(id, title,
                 f'clamp_min(time() - backup_last_success_timestamp_seconds{{{selector}}}, 0)',
-                "dtdurations", x, y, w, h, thresholds={
+                "dtdurations", x, y, w, h, description=description, thresholds={
                     "mode": "absolute",
                     "steps": [{"color": "green",  "value": None},
                               {"color": "yellow", "value": yellow_s},

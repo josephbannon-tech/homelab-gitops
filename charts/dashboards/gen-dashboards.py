@@ -691,14 +691,27 @@ slo_panels = [
 # textfile_collector. Thresholds are per-job because cadences span 60x
 # (1m mover vs 24h config backups); a uniform threshold would either flap on
 # slow backups or hide a dead mover for hours.
-# Entry: (label_selector, display_title, yellow_seconds, red_seconds)
+# Entry: (label_selector, display_title, yellow_seconds, red_seconds, description)
 BACKUP_JOBS = [
-    ('name="jbsrv01-config-backup"',          "JBSRV01 config",     90000, 180000),
-    ('name="jbdns01-config-backup"',          "JBDNS01 config",     90000, 180000),
-    ('name="jbvm02-secrets-backup"',          "JBVM02 secrets",     90000, 180000),
-    ('name="mc-world-backup",slot="daily"',   "MC world (daily)",   90000, 180000),
-    ('name="mc-world-backup",slot="rolling"', "MC world (4h)",      18000,  36000),
-    ('name="nas-dropbox-mover"',              "NAS dropbox mover",    180,    600),
+    ('name="jbsrv01-config-backup"',          "JBSRV01 config",     90000, 180000,
+     "Time since the last successful Proxmox host config backup. Expected "
+     "daily — yellow at ~25h, red at ~50h means the backup job is failing."),
+    ('name="jbdns01-config-backup"',          "JBDNS01 config",     90000, 180000,
+     "Time since the last successful Pi-hole/JBDNS01 config backup. Expected "
+     "daily — red at ~50h means DNS/DHCP config is no longer being captured."),
+    ('name="jbvm02-secrets-backup"',          "JBVM02 secrets",     90000, 180000,
+     "Time since the last successful JBVM02 secrets backup. Expected daily — "
+     "red at ~50h means credential material is not being protected."),
+    ('name="mc-world-backup",slot="daily"',   "MC world (daily)",   90000, 180000,
+     "Time since the last successful daily Minecraft world snapshot. Red at "
+     "~50h means a day's worth of world progress is unprotected."),
+    ('name="mc-world-backup",slot="rolling"', "MC world (4h)",      18000,  36000,
+     "Time since the last 4-hourly rolling Minecraft world snapshot. Yellow "
+     "at ~5h, red at ~10h means the short-cadence backup has stalled."),
+    ('name="nas-dropbox-mover"',              "NAS dropbox mover",    180,    600,
+     "Time since the NAS dropbox mover last ran. Expected every minute — "
+     "yellow at 3m, red at 10m means the mover is stuck and inbound files "
+     "are piling up."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,
@@ -742,59 +755,104 @@ capacity_panels = [
              [t(f'100 * node_filesystem_avail_bytes{{{FS_FILTER}}} / '
                 f'node_filesystem_size_bytes{{{FS_FILTER}}}',
                 '{{hostname}}: {{mountpoint}}')],
-             "percent", 0, 1, 24, 10),
+             "percent", 0, 1, 24, 10,
+             description="Free space remaining as a percentage of each "
+                         "filesystem, all hosts. Bargauge thresholds are "
+                         "inverted from fill: low free % is red. Below 10% "
+                         "free needs action."),
 
     row(3, "Filesystem Days-to-Full (linear projection from last 7d)", 11),
     bargauge(4, "Days remaining (positive = filling; absent = stable/growing slowly)",
              [t(DAYS_TO_FULL, '{{hostname}}: {{mountpoint}}')],
-             "d", 0, 12, 24, 8, min_val=0, max_val=180),
+             "d", 0, 12, 24, 8, min_val=0, max_val=180,
+             description="Linear projection of days until each filesystem "
+                         "fills, from the last 7d trend. A filesystem that is "
+                         "stable or shrinking has no series here — an absent "
+                         "bar is good, not an error."),
 
     row(5, "ZFS Pools (NAS)", 20),
     stat(6, "JBNAS_SSD pool state",   pool_state_online(NAS, "JBNAS_SSD"),
-         "short", 0, 21, 6, 4, thresholds=ZERO_RED_ONE_GREEN),
+         "short", 0, 21, 6, 4, thresholds=ZERO_RED_ONE_GREEN,
+         mappings=ONLINE_DEG,
+         description="zpool health of JBNAS_SSD. ONLINE = healthy; DEGRADED "
+                     "is a DR concern — a degraded pool may lose redundancy "
+                     "or capacity."),
     stat(7, "JBNAS_MEDIA pool state", pool_state_online(NAS, "JBNAS_MEDIA"),
-         "short", 6, 21, 6, 4, thresholds=ZERO_RED_ONE_GREEN),
-    stat(8, "ARC hit ratio", arc_hit_ratio(NAS),
-         "percent", 12, 21, 6, 4, thresholds=ARC_RATIO_THRESH),
-    stat(9, "ARC size", f'node_zfs_arc_size{{hostname="{NAS}"}}',
-         "bytes", 18, 21, 6, 4, thresholds=GREEN_ONLY),
+         "short", 6, 21, 6, 4, thresholds=ZERO_RED_ONE_GREEN,
+         mappings=ONLINE_DEG,
+         description="zpool health of JBNAS_MEDIA — a stripe pool with no "
+                     "parity. DEGRADED means imminent data loss; treat as a "
+                     "critical DR incident."),
+    bargauge(8, "Data pool capacity used %",
+             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_POOL_FS}}} / '
+                f'node_filesystem_size_bytes{{{ZFS_POOL_FS}}})',
+                "{{device}}")],
+             "percent", 12, 21, 12, 4,
+             description="Percentage full of each data pool (JBNAS_SSD, "
+                         "JBNAS_MEDIA). Yellow at 70%, red at 90% — a full "
+                         "pool is a capacity incident and degrades ZFS "
+                         "write performance."),
 
-    row(10, "Estate Headroom — RAM & CPU per Host", 25),
+    row(9, "Estate Headroom — RAM & CPU per Host", 25),
     # avg by (hostname) drops the noisy {namespace, endpoint, ...} labels so
     # the legend reads as just the hostname.
-    timeseries(11, "Free memory (%)",
+    timeseries(10, "Free memory (%)",
                [t('100 * avg by (hostname) (node_memory_MemAvailable_bytes / '
                   'node_memory_MemTotal_bytes)', "{{hostname}}")],
-               "percent", 0, 26, 12, 8),
-    timeseries(12, "CPU idle (%)",
+               "percent", 0, 26, 12, 8,
+               description="Free memory as a percentage of total, per host. "
+                           "Sustained low free memory on any host risks the "
+                           "OOM killer."),
+    timeseries(11, "CPU idle (%)",
                [t('100 * avg by (hostname) (rate(node_cpu_seconds_total{mode="idle"}[5m]))',
                   "{{hostname}}")],
-               "percent", 12, 26, 12, 8),
+               "percent", 12, 26, 12, 8,
+               description="CPU idle percentage per host. Low idle = the host "
+                           "is CPU-bound; this is the spare-capacity view for "
+                           "the estate."),
 
-    row(13, f"SMART — Power-on time + warnings ({HOSTS['srv']} = all physical drives)", 34),
-    timeseries(14, "Power-on hours per drive",
+    row(12, f"SMART — Power-on time + warnings ({HOSTS['srv']} = all physical drives)", 34),
+    timeseries(13, "Power-on hours per drive",
                [t(f'smartctl_device_power_on_seconds{{instance="{IPS["srv"]}"}} / 3600',
                   "{{device}} {{model_name}}")],
-               "h", 0, 35, 16, 8),
-    stat(15, "Drives with SMART warning (exit_status > 0)",
+               "h", 0, 35, 16, 8,
+               description="Cumulative power-on hours per physical drive. "
+                           "Used to gauge drive age — consumer drives drift "
+                           "into the failure-rate climb past ~40-50k hours."),
+    stat(14, "Drives with SMART warning (exit_status > 0)",
          smart_warning_count(),
-         "short", 16, 35, 8, 4, thresholds=ZERO_GREEN_ONE_RED),
-    stat(16, "Drives with SMART status FAILED",
+         "short", 16, 35, 8, 4, thresholds=ZERO_GREEN_ONE_RED,
+         description="Count of drives where smartctl exit_status > 0. The "
+                     "exit status is a bitfield — 0 is the only clean value; "
+                     "any non-zero means SMART flagged the drive."),
+    stat(15, "Drives with SMART status FAILED",
          f'count(smartctl_device_smart_status{{instance="{IPS["srv"]}"}} == 0) '
          f'or vector(0)',
-         "short", 16, 39, 8, 4, thresholds=ZERO_GREEN_ONE_RED),
+         "short", 16, 39, 8, 4, thresholds=ZERO_GREEN_ONE_RED,
+         description="Count of drives whose SMART overall-health "
+                     "self-assessment reports FAILED. Expected 0 — any "
+                     "non-zero means a drive is dying, see the "
+                     "SmartDriveStatusFailed alert."),
 
-    row(17, "Backup / DR Status: last successful heartbeat per job", 43),
-    *[backup_age_stat(18 + i, title, selector,
-                      (i % 6) * 4, 44, 4, 4, yellow_s, red_s)
-      for i, (selector, title, yellow_s, red_s) in enumerate(BACKUP_JOBS)],
+    row(16, "Backup / DR Status: last successful heartbeat per job", 43),
+    *[backup_age_stat(17 + i, title, selector,
+                      (i % 6) * 4, 44, 4, 4, yellow_s, red_s,
+                      description=desc)
+      for i, (selector, title, yellow_s, red_s, desc) in enumerate(BACKUP_JOBS)],
     # Meta-tile separates "textfile dir missing or unreadable" from "all
     # backups failed simultaneously". Without it the 6 tiles above light red
     # in unison and the real cause hides.
-    stat(24, "Textfile scrape error (any host)",
+    stat(23, "Textfile scrape error (any host)",
          'max(node_textfile_scrape_error{job="node-exporter-external"})',
-         "short", 0, 48, 6, 4, thresholds=ZERO_GREEN_ONE_RED),
-    text_panel(25, "Residual gaps", CAP_BACKUP_GAPS, 6, 48, 18, 4),
+         "short", 0, 48, 6, 4, thresholds=ZERO_GREEN_ONE_RED,
+         description="1 if any host's node-exporter textfile collector is "
+                     "broken or unreadable. Disambiguates 'textfile dir "
+                     "missing' from 'all backups genuinely failed' — the "
+                     "former lights every backup tile red at once."),
+    text_panel(24, "Residual gaps", CAP_BACKUP_GAPS, 6, 48, 18, 4,
+               description="Backup/DR coverage gaps not visible in the "
+                           "heartbeat tiles above — single-copy paths and "
+                           "no-parity pools, tracked in project_open_defects."),
 ]
 
 # ── Dashboard 5: Logs + Network / DNS Overview ──────────────────────────────

@@ -192,7 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Free space remaining as a percentage of each filesystem, all hosts. Bargauge thresholds are inverted from fill: low free % is red. Below 10% free needs action.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -269,7 +269,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Linear projection of days until each filesystem fills, from the last 7d trend. A filesystem that is stable or shrinking has no series here \u2014 an absent bar is good, not an error.",
           "gridPos": {
             "x": 0,
             "y": 19,
@@ -346,7 +346,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "zpool health of JBNAS_SSD. ONLINE = healthy; DEGRADED is a DR concern \u2014 a degraded pool may lose redundancy or capacity.",
           "gridPos": {
             "x": 0,
             "y": 28,
@@ -370,7 +370,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DEGRADED",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "ONLINE",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -408,7 +424,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "zpool health of JBNAS_MEDIA \u2014 a stripe pool with no parity. DEGRADED means imminent data loss; treat as a critical DR incident.",
           "gridPos": {
             "x": 6,
             "y": 28,
@@ -432,7 +448,23 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [],
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DEGRADED",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "ONLINE",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -464,42 +496,40 @@ data:
         },
         {
           "id": 8,
-          "title": "ARC hit ratio",
-          "type": "stat",
+          "title": "Data pool capacity used %",
+          "type": "bargauge",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Percentage full of each data pool (JBNAS_SSD, JBNAS_MEDIA). Yellow at 70%, red at 90% \u2014 a full pool is a capacity incident and degrades ZFS write performance.",
           "gridPos": {
             "x": 12,
             "y": 28,
-            "w": 6,
+            "w": 12,
             "h": 4
           },
           "options": {
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
+              ]
             },
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "textMode": "auto"
+            "orientation": "horizontal",
+            "displayMode": "gradient",
+            "valueMode": "color"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
+              "min": 0,
+              "max": 100,
               "mappings": [],
               "thresholds": {
-                "mode": "absolute",
+                "mode": "percentage",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "green",
                     "value": null
                   },
                   {
@@ -507,7 +537,7 @@ data:
                     "value": 70
                   },
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": 90
                   }
                 ]
@@ -521,73 +551,14 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_zfs_arc_hits{hostname=\"JBNAS01\"} / (node_zfs_arc_hits{hostname=\"JBNAS01\"} + node_zfs_arc_misses{hostname=\"JBNAS01\"}) * 100",
-              "instant": true,
-              "legendFormat": "",
+              "expr": "100 * (1 - node_filesystem_avail_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"} / node_filesystem_size_bytes{fstype=\"zfs\",device=~\"JBNAS_SSD|JBNAS_MEDIA\"})",
+              "legendFormat": "{{device}}",
               "refId": "A"
             }
           ]
         },
         {
           "id": 9,
-          "title": "ARC size",
-          "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "",
-          "gridPos": {
-            "x": 18,
-            "y": 28,
-            "w": 6,
-            "h": 4
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "textMode": "auto"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "bytes",
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "node_zfs_arc_size{hostname=\"JBNAS01\"}",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 10,
           "title": "Estate Headroom \u2014 RAM & CPU per Host",
           "type": "row",
           "collapsed": false,
@@ -601,14 +572,14 @@ data:
           "panels": []
         },
         {
-          "id": 11,
+          "id": 10,
           "title": "Free memory (%)",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Free memory as a percentage of total, per host. Sustained low free memory on any host risks the OOM killer.",
           "gridPos": {
             "x": 0,
             "y": 33,
@@ -657,14 +628,14 @@ data:
           ]
         },
         {
-          "id": 12,
+          "id": 11,
           "title": "CPU idle (%)",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "CPU idle percentage per host. Low idle = the host is CPU-bound; this is the spare-capacity view for the estate.",
           "gridPos": {
             "x": 12,
             "y": 33,
@@ -713,7 +684,7 @@ data:
           ]
         },
         {
-          "id": 13,
+          "id": 12,
           "title": "SMART \u2014 Power-on time + warnings (JBSRV01 = all physical drives)",
           "type": "row",
           "collapsed": false,
@@ -727,14 +698,14 @@ data:
           "panels": []
         },
         {
-          "id": 14,
+          "id": 13,
           "title": "Power-on hours per drive",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Cumulative power-on hours per physical drive. Used to gauge drive age \u2014 consumer drives drift into the failure-rate climb past ~40-50k hours.",
           "gridPos": {
             "x": 0,
             "y": 42,
@@ -783,14 +754,14 @@ data:
           ]
         },
         {
-          "id": 15,
+          "id": 14,
           "title": "Drives with SMART warning (exit_status > 0)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of drives where smartctl exit_status > 0. The exit status is a bitfield \u2014 0 is the only clean value; any non-zero means SMART flagged the drive.",
           "gridPos": {
             "x": 16,
             "y": 42,
@@ -845,14 +816,14 @@ data:
           ]
         },
         {
-          "id": 16,
+          "id": 15,
           "title": "Drives with SMART status FAILED",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Count of drives whose SMART overall-health self-assessment reports FAILED. Expected 0 \u2014 any non-zero means a drive is dying, see the SmartDriveStatusFailed alert.",
           "gridPos": {
             "x": 16,
             "y": 46,
@@ -907,7 +878,7 @@ data:
           ]
         },
         {
-          "id": 17,
+          "id": 16,
           "title": "Backup / DR Status: last successful heartbeat per job",
           "type": "row",
           "collapsed": false,
@@ -921,14 +892,14 @@ data:
           "panels": []
         },
         {
-          "id": 18,
+          "id": 17,
           "title": "JBSRV01 config",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the last successful Proxmox host config backup. Expected daily \u2014 yellow at ~25h, red at ~50h means the backup job is failing.",
           "gridPos": {
             "x": 0,
             "y": 51,
@@ -987,14 +958,14 @@ data:
           ]
         },
         {
-          "id": 19,
+          "id": 18,
           "title": "JBDNS01 config",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the last successful Pi-hole/JBDNS01 config backup. Expected daily \u2014 red at ~50h means DNS/DHCP config is no longer being captured.",
           "gridPos": {
             "x": 4,
             "y": 51,
@@ -1053,14 +1024,14 @@ data:
           ]
         },
         {
-          "id": 20,
+          "id": 19,
           "title": "JBVM02 secrets",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the last successful JBVM02 secrets backup. Expected daily \u2014 red at ~50h means credential material is not being protected.",
           "gridPos": {
             "x": 8,
             "y": 51,
@@ -1119,14 +1090,14 @@ data:
           ]
         },
         {
-          "id": 21,
+          "id": 20,
           "title": "MC world (daily)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the last successful daily Minecraft world snapshot. Red at ~50h means a day's worth of world progress is unprotected.",
           "gridPos": {
             "x": 12,
             "y": 51,
@@ -1185,14 +1156,14 @@ data:
           ]
         },
         {
-          "id": 22,
+          "id": 21,
           "title": "MC world (4h)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the last 4-hourly rolling Minecraft world snapshot. Yellow at ~5h, red at ~10h means the short-cadence backup has stalled.",
           "gridPos": {
             "x": 16,
             "y": 51,
@@ -1251,14 +1222,14 @@ data:
           ]
         },
         {
-          "id": 23,
+          "id": 22,
           "title": "NAS dropbox mover",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "Time since the NAS dropbox mover last ran. Expected every minute \u2014 yellow at 3m, red at 10m means the mover is stuck and inbound files are piling up.",
           "gridPos": {
             "x": 20,
             "y": 51,
@@ -1317,14 +1288,14 @@ data:
           ]
         },
         {
-          "id": 24,
+          "id": 23,
           "title": "Textfile scrape error (any host)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "",
+          "description": "1 if any host's node-exporter textfile collector is broken or unreadable. Disambiguates 'textfile dir missing' from 'all backups genuinely failed' \u2014 the former lights every backup tile red at once.",
           "gridPos": {
             "x": 0,
             "y": 55,
@@ -1379,10 +1350,10 @@ data:
           ]
         },
         {
-          "id": 25,
+          "id": 24,
           "title": "Residual gaps",
           "type": "text",
-          "description": "",
+          "description": "Backup/DR coverage gaps not visible in the heartbeat tiles above \u2014 single-copy paths and no-parity pools, tracked in project_open_defects.",
           "gridPos": {
             "x": 6,
             "y": 55,

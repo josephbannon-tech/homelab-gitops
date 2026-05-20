@@ -114,7 +114,7 @@ def timeseries(id, title, targets, unit, x, y, w, h, fill=10, stacking="none",
     }
 
 def bargauge(id, title, targets, unit, x, y, w, h, min_val=0, max_val=100,
-             ds=None, description=""):
+             ds=None, description="", thresholds=None):
     return {
         "id": id, "title": title, "type": "bargauge", "datasource": ds or DS,
         "description": description,
@@ -127,7 +127,7 @@ def bargauge(id, title, targets, unit, x, y, w, h, min_val=0, max_val=100,
         "fieldConfig": {
             "defaults": {
                 "unit": unit, "min": min_val, "max": max_val, "mappings": [],
-                "thresholds": {
+                "thresholds": thresholds or {
                     "mode": "percentage",
                     "steps": [{"color": "green", "value": None},
                               {"color": "yellow", "value": 70},
@@ -460,8 +460,10 @@ proxmox_panels = [
 NAS = HOSTS["nas"]
 NAS_IP = IPS["nas"]
 
-# Pool-root datasets: their fill represents the whole pool's capacity.
-ZFS_POOL_FS = 'fstype="zfs",device=~"JBNAS_SSD|JBNAS_MEDIA"'
+# The data-holding child datasets. The pool-root datasets (JBNAS_SSD,
+# JBNAS_MEDIA) report near-zero fill because the data lives in child datasets,
+# so capacity panels must query the datasets that actually hold data.
+ZFS_DATA_FS = 'fstype="zfs",mountpoint=~"/mnt/JBNAS_SSD/data|/mnt/JBNAS_MEDIA/plex"'
 
 zfs_panels = [
     row(1, "ZFS Pool Health", 0),
@@ -489,15 +491,15 @@ zfs_panels = [
                      "under memory pressure."),
 
     row(6, "ZFS Pool Capacity", 5),
-    bargauge(7, "Data pool capacity used %",
-             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_POOL_FS}}} / '
-                f'node_filesystem_size_bytes{{{ZFS_POOL_FS}}})',
-                "{{device}}")],
+    bargauge(7, "Data dataset usage %",
+             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_DATA_FS}}} / '
+                f'node_filesystem_size_bytes{{{ZFS_DATA_FS}}})',
+                "{{mountpoint}}")],
              "percent", 0, 6, 24, 6,
-             description="Percentage full of each data pool (JBNAS_SSD, "
-                         "JBNAS_MEDIA). Yellow at 70%, red at 90% — a full ZFS "
-                         "pool degrades write performance and blocks "
-                         "snapshots. boot-pool is excluded."),
+             description="Space used by the data-holding ZFS datasets "
+                         "(JBNAS_SSD/data, JBNAS_MEDIA/plex) as a percentage of "
+                         "used + pool-free. Yellow 70%, red 90% — a near-full "
+                         "pool degrades ZFS write performance."),
 
     row(8, "ZFS ARC Detail", 12),
     timeseries(9, "ARC Size vs Max",
@@ -760,9 +762,12 @@ capacity_panels = [
                 '{{hostname}}: {{mountpoint}}')],
              "percent", 0, 1, 24, 10,
              description="Free space remaining as a percentage of each "
-                         "filesystem, all hosts. Bargauge thresholds are "
-                         "inverted from fill: low free % is red. Below 10% "
-                         "free needs action."),
+                         "filesystem, all hosts. Thresholds are inverted from "
+                         "fill: red below 15% free, green above 30%.",
+             thresholds={"mode": "absolute", "steps": [
+                 {"color": "red", "value": None},
+                 {"color": "yellow", "value": 15},
+                 {"color": "green", "value": 30}]}),
 
     row(3, "Filesystem Days-to-Full (linear projection from last 7d)", 11),
     bargauge(4, "Days remaining (positive = filling; absent = stable/growing slowly)",
@@ -771,7 +776,11 @@ capacity_panels = [
              description="Linear projection of days until each filesystem "
                          "fills, from the last 7d trend. A filesystem that is "
                          "stable or shrinking has no series here — an absent "
-                         "bar is good, not an error."),
+                         "bar is good, not an error. Red below 7 days.",
+             thresholds={"mode": "absolute", "steps": [
+                 {"color": "red", "value": None},
+                 {"color": "yellow", "value": 7},
+                 {"color": "green", "value": 30}]}),
 
     row(5, "ZFS Pools (NAS)", 20),
     stat(6, "JBNAS_SSD pool state",   pool_state_online(NAS, "JBNAS_SSD"),
@@ -786,15 +795,15 @@ capacity_panels = [
          description="zpool health of JBNAS_MEDIA — a stripe pool with no "
                      "parity. DEGRADED means imminent data loss; treat as a "
                      "critical DR incident."),
-    bargauge(8, "Data pool capacity used %",
-             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_POOL_FS}}} / '
-                f'node_filesystem_size_bytes{{{ZFS_POOL_FS}}})',
-                "{{device}}")],
+    bargauge(8, "Data dataset usage %",
+             [t(f'100 * (1 - node_filesystem_avail_bytes{{{ZFS_DATA_FS}}} / '
+                f'node_filesystem_size_bytes{{{ZFS_DATA_FS}}})',
+                "{{mountpoint}}")],
              "percent", 12, 21, 12, 4,
-             description="Percentage full of each data pool (JBNAS_SSD, "
-                         "JBNAS_MEDIA). Yellow at 70%, red at 90% — a full "
-                         "pool is a capacity incident and degrades ZFS "
-                         "write performance."),
+             description="Space used by the data-holding ZFS datasets "
+                         "(JBNAS_SSD/data, JBNAS_MEDIA/plex) as a percentage of "
+                         "used + pool-free. Yellow 70%, red 90% — a near-full "
+                         "pool is a capacity incident."),
 
     row(9, "Estate Headroom — RAM & CPU per Host", 25),
     # avg by (hostname) drops the noisy {namespace, endpoint, ...} labels so
@@ -934,17 +943,18 @@ logs_panels = [
                            "local resolution."),
 
     # Real user-facing DNS SLI — independent of pihole-exporter scrape.
-    # probe_success is 0/1 (UDP/53 lookup of health.check.local).
+    # probe_success is 0/1 from the blackbox dns_pihole module (UDP/53 lookup).
+    # The series carries job=, not module=, so select on job.
     row(15, "Pi-hole DNS — Blackbox probe (real user-facing SLI)", 38),
     stat(16, "DNS probe",
-         'probe_success{module="dns_pihole"}',
+         'probe_success{job="blackbox-dns-pihole"}',
          "short", 0, 39, 6, 4, thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
          description="Result of a real UDP/53 DNS lookup against "
                      "192.168.0.205. UP = the LAN can resolve names — the "
                      "actual user-facing signal, independent of the "
                      "pihole-exporter scrape."),
     timeseries(18, "DNS lookup time (s)",
-               [t('probe_dns_lookup_time_seconds{module="dns_pihole"}', "lookup")],
+               [t('probe_dns_lookup_time_seconds{job="blackbox-dns-pihole"}', "lookup")],
                "s", 6, 39, 18, 4,
                description="Round-trip time of the blackbox DNS probe. Rising "
                            "lookup time means Pi-hole is slow to answer even "

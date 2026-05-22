@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/redblackoutcast-cell/homelab-gitops.git
+    repoURL: https://github.com/josephbannon-tech/homelab-gitops.git
     targetRevision: HEAD
     path: charts/pihole-exporter
   destination:

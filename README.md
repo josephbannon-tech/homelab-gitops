@@ -15,6 +15,7 @@ graph TB
     subgraph host["JBSRV01 · Proxmox VE · Ryzen 7 2700X / 80 GB DDR4"]
         dns["JBDNS01\nPi-hole v6 LXC\nDNS · DHCP · Tailscale router/exit-node"]
         nas["JBNAS01\nTrueNAS SCALE\nRAIDZ1 SSD + HDD stripe"]
+        vm01["JBVM01\nDesktop / jump box\nRDP · SMB dropbox"]
         vm02["JBVM02\nOperations origin\nClaude Code / SSH hub"]
         vm03["JBVM03\nProd application\nserver"]
 
@@ -37,6 +38,7 @@ graph TB
     github -->|"git poll"| argocd
     argocd --> k8s
     prom -->|"node_exporter"| nas
+    prom -->|"node_exporter"| vm01
     prom -->|"node_exporter"| vm02
     prom -->|"node_exporter"| vm03
     prom -->|"node_exporter"| dns
@@ -351,6 +353,30 @@ Symptom: backup script writes `backup_last_success_timestamp_seconds{job="jbsrv0
 Root cause: the scrape config for `node-exporter-external` already sets `job=node-exporter-external` on every series. When the textfile sample sets a colliding `job` label, Prometheus' default behaviour is to keep the scrape-config value and rename the inner label to `exported_job`. The metric is present but every PromQL query that filters on `{job="..."}` returns empty, indistinguishable from "the script never ran".
 Fix: pick a label name that doesn't collide with anything the scrape config already sets. The dashboard uses `name=` for these heartbeats; the scrape config doesn't touch `name`, so it round-trips intact.
 Lesson: any label a target writes that collides with a scrape-config label gets renamed silently. The failure mode is invisible until something queries for the specific value the inner label was supposed to carry, and the renamed `exported_<label>` is easy to miss in Prometheus' label inspector. Same class of silent-fail as the earlier "alerts on metrics that don't exist" lesson: a working pipeline carrying the wrong data is harder to catch than a broken one.
+
+**`runAsNonRoot: true` blocks the container when the image declares its user by name**
+Symptom: a hardening change added `securityContext.runAsNonRoot: true` to the pve-exporter Deployment. The new pod never started -- `CreateContainerConfigError`, `container has runAsNonRoot and image has non-numeric user (prometheus), cannot verify user is non-root`. The old ReplicaSet kept serving, so metrics never dropped, but the rollout wedged and fired `KubePodNotReady` / `KubeDeploymentRolloutStuck` after 15 minutes.
+Root cause: the kubelet enforces `runAsNonRoot` before the container starts, and to prove the user is not UID 0 it needs a number. The `prometheus-pve-exporter` image sets `USER prometheus` -- a name -- and the kubelet will not resolve it against the image's `/etc/passwd`. Without a numeric `runAsUser` it refuses to start the container.
+Fix: pin the UID. `id` in the running container reported `uid=101(prometheus)`, so the pod securityContext gained `runAsUser: 101` / `runAsGroup: 101`. The check then passes and the rest of the hardening takes effect.
+Lesson: a `runAsNonRoot` change needs a numeric `runAsUser` beside it. Many upstream images set `USER` by name, and nothing catches it early -- `helm lint` and `yamllint` both pass, because the manifest is valid; it fails only when the kubelet starts the pod. Read the image's UID first and pin it in the same commit.
+
+**A memory-utilisation alert false-fires on hosts that use their memory by design**
+Symptom: a new `NodeMemoryHigh` alert -- `(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90` -- paged for the NAS and the Minecraft host within minutes of going live. Both were at 90%+ memory used. Neither had a problem.
+Root cause: high memory use is the normal, healthy state on several hosts here. The NAS runs ZFS, whose ARC cache expands to fill free RAM and is evicted on demand; `MemAvailable` does not credit ARC back, so the figure looks alarming where it means nothing. The Minecraft host runs a JVM with a large fixed heap. The Proxmox host's memory is mostly guest allocation. A utilisation figure cannot separate a host that is full because it is working from one that is full because it is failing.
+Fix: drop the utilisation alert. Memory health is covered by `NodeMemoryThrottled`, which reads kernel PSI (`node_pressure_memory_stalled_seconds_total`) -- the share of wall-clock time tasks spend stalled waiting on memory. PSI is zero on a host whose RAM is full of cache or heap, non-zero only when contention is real. `NodeIOThrottled` does the same for disk.
+Lesson: alert on saturation, not utilisation. Utilisation answers "how full", which is a dashboard question -- "full" is the designed state for caches, heaps and hypervisors. Saturation answers "is the resource making work wait", which is the thing worth a page.
+
+**A DNS SLI that was dead for nine days -- "alerts on metrics that don't exist", twice over**
+Symptom: a dashboard screenshot review showed the Pi-hole DNS SLI tile reading 0% and its burn-rate panel reading "No data". Household DNS had been fine the whole time.
+Root cause: two independent breaks, both invisible. (1) The blackbox `dns_pihole` module queried `health.check.local` -- a name with no DNS record -- so Pi-hole correctly answered `NXDOMAIN` and `probe_success` had been `0` since the probe was deployed. (2) The `slo:pihole_dns:*` recording rules and the dashboard panels filtered `probe_success` on a `module="dns_pihole"` label that the Probe-CRD metric never carries, so the rules produced no series at all -- and `PiholeDnsBurnFast`, a critical alert, evaluated an empty vector and could never have fired.
+Fix: query a real domain (`google.com`), which exercises the full pihole-FTL + upstream path; switch every selector to `job="blackbox-dns-pihole"`, the label that is actually present.
+Lesson: this is the "Alerts on metrics that don't exist evaluate to false forever" lesson above, recurring -- and worse, because the SLI also displayed a false outage for nine days. The check that catches it has not changed: before trusting any alert or SLI, query the metric and confirm the series exists with the labels you filter on. A probe is not monitored until you have watched it return a real success.
+
+**The Grafana image renderer breaks on every ArgoCD sync**
+Symptom: dashboard PNG rendering returns `401 Unauthorized` from the image renderer. Restarting the pods fixes it; the next ArgoCD sync breaks it again.
+Root cause: Grafana and the renderer share an auth token from a chart-generated Secret. The chart generates it with `randAlphaNum` behind a `lookup` of the existing Secret -- but ArgoCD renders the chart with `helm template`, which has no cluster connection, so `lookup` returns nothing and a fresh token is produced on every sync. ArgoCD applies the new Secret; the running pods keep the token from their last start; the two no longer match.
+Fix: pin the token so it is stable across renders -- a `SealedSecret` referenced by both Grafana and the renderer -- or a `PostSync` reconcile hook that restarts the pods, mirroring the `grafana-password-sync-job` already in this repo for the identical Grafana-admin-password desync.
+Lesson: any Helm chart that keeps a generated value stable via `lookup` is unstable under ArgoCD, because `helm template` has no cluster to look in. Whenever a chart auto-generates a secret, check whether the value survives a `helm template` with no cluster -- if it does not, pin it.
 
 ---
 

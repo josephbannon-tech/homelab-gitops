@@ -15,6 +15,7 @@ graph TB
     subgraph host["JBSRV01 · Proxmox VE · Ryzen 7 2700X / 80 GB DDR4"]
         dns["JBDNS01\nPi-hole v6 LXC\nDNS · DHCP · Tailscale router/exit-node"]
         nas["JBNAS01\nTrueNAS SCALE\nRAIDZ1 SSD + HDD stripe"]
+        vm01["JBVM01\nDesktop / jump box\nRDP · SMB dropbox"]
         vm02["JBVM02\nOperations origin\nClaude Code / SSH hub"]
         vm03["JBVM03\nProd application\nserver"]
 
@@ -37,6 +38,7 @@ graph TB
     github -->|"git poll"| argocd
     argocd --> k8s
     prom -->|"node_exporter"| nas
+    prom -->|"node_exporter"| vm01
     prom -->|"node_exporter"| vm02
     prom -->|"node_exporter"| vm03
     prom -->|"node_exporter"| dns

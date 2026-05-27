@@ -33,7 +33,7 @@ prometheus-blackbox-exporter:
           # PMS load — unlike the plex-exporter /metrics scrape, which queries
           # the Plex API for library+session stats and times out under playback
           # load (the false-alarm pattern that fired PlexErrorBudgetBurnFast).
-          fail_if_body_not_matched_regexp:
+          fail_if_body_not_matches_regexp:
             - "machineIdentifier"
 
   # ServiceMonitor configuration:

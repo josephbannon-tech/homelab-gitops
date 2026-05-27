@@ -1,0 +1,29 @@
+# Probe CRD: drives the http_plex blackbox module at Plex Media Server's
+# /identity endpoint on the Nvidia Shield. Produces
+# probe_success{job="blackbox-plex"}, the real user-facing Plex reachability
+# SLI behind PlexReachabilityBurnFast/Slow.
+#
+# This is the Plex counterpart to the pihole-dns Probe (probe.yaml): a probe
+# of the actual service, distinct from the plex-exporter scrape SLI
+# (up{job="plex"}), which measures exporter health, not whether Plex is up.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: plex-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-plex
+  interval: 30s
+  module: http_plex
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.202:32400/identity
+      labels:
+        hostname: NvidiaShield
+        role: media-server

@@ -549,11 +549,11 @@ _BURN_DESC = ("SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = "
 
 slo_panels = [
     row(1, "30-Day SLO Compliance (target lines: red=below, green=above)", 0),
-    stat_with_target_color(2, "Plex (target 99.5%)",
-        "slo:plex:availability:ratio_30d * 100", "percent", 0, 1, 5, 4, 99.5,
-        description="Plex availability over the trailing 30 days against the "
-                    "99.5% target. Green = meeting SLO, yellow = within 0.1% "
-                    "of the line, red = SLO breached."),
+    stat_with_target_color(2, "Plex (real probe, 99.5%)",
+        "slo:plex_http:availability:ratio_30d * 100", "percent", 0, 1, 5, 4, 99.5,
+        description="Plex availability from the blackbox http probe of "
+                    "/identity (real user-facing reachability), trailing 30 "
+                    "days vs the 99.5% target — not the exporter-scrape signal."),
     stat_with_target_color(3, "Minecraft (target 99.0%)",
         "slo:minecraft:availability:ratio_30d * 100", "percent", 5, 1, 5, 4, 99.0,
         description="Minecraft server availability over the trailing 30 days "
@@ -576,9 +576,9 @@ slo_panels = [
 
     row(7, "Burn Rate (1.0 = on budget; >14.4 = critical, >6 = warning)", 5),
     timeseries(8, "Plex burn rate",
-               [t("slo:plex:burn_rate:5m", "5m"),
-                t("slo:plex:burn_rate:1h", "1h", "B"),
-                t("slo:plex:burn_rate:6h", "6h", "C")],
+               [t("slo:plex_http:burn_rate:5m", "5m"),
+                t("slo:plex_http:burn_rate:1h", "1h", "B"),
+                t("slo:plex_http:burn_rate:6h", "6h", "C")],
                "short", 0, 6, 6, 7, fill=0, description=_BURN_DESC),
     timeseries(9, "Minecraft burn rate",
                [t("slo:minecraft:burn_rate:5m", "5m"),

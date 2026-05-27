@@ -186,13 +186,13 @@ data:
         },
         {
           "id": 2,
-          "title": "Plex (target 99.5%)",
+          "title": "Plex (real probe, 99.5%)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Plex availability over the trailing 30 days against the 99.5% target. Green = meeting SLO, yellow = within 0.1% of the line, red = SLO breached.",
+          "description": "Plex availability from the blackbox http probe of /identity (real user-facing reachability), trailing 30 days vs the 99.5% target \u2014 not the exporter-scrape signal.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -243,7 +243,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:plex:availability:ratio_30d * 100",
+              "expr": "slo:plex_http:availability:ratio_30d * 100",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -578,7 +578,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:plex:burn_rate:5m",
+              "expr": "slo:plex_http:burn_rate:5m",
               "legendFormat": "5m",
               "refId": "A"
             },
@@ -587,7 +587,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:plex:burn_rate:1h",
+              "expr": "slo:plex_http:burn_rate:1h",
               "legendFormat": "1h",
               "refId": "B"
             },
@@ -596,7 +596,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:plex:burn_rate:6h",
+              "expr": "slo:plex_http:burn_rate:6h",
               "legendFormat": "6h",
               "refId": "C"
             }

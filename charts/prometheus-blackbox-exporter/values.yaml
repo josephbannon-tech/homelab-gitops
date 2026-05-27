@@ -1,8 +1,10 @@
 prometheus-blackbox-exporter:
-  # Modules: how blackbox probes a target. The Probe CRD in
-  # servicemonitor.yaml drives the dns_pihole module against
-  # 192.168.0.205:53/udp to produce probe_success{job="blackbox-dns-pihole"},
-  # which is the SLI behind PiholeDnsBurnFast.
+  # Modules: how blackbox probes a target. Probe CRDs in templates/ bind a
+  # module to a target:
+  #   * dns_pihole  -> 192.168.0.205:53/udp  -> probe_success{job="blackbox-dns-pihole"}
+  #                    (SLI behind PiholeDnsBurnFast)
+  #   * http_plex   -> 192.168.0.202:32400/identity -> probe_success{job="blackbox-plex"}
+  #                    (SLI behind PlexReachabilityBurnFast)
   config:
     modules:
       dns_pihole:
@@ -18,6 +20,21 @@ prometheus-blackbox-exporter:
           query_name: google.com
           query_type: A
           valid_rcodes: [NOERROR]
+      http_plex:
+        prober: http
+        timeout: 5s
+        http:
+          method: GET
+          preferred_ip_protocol: ip4
+          valid_status_codes: [200]
+          # /identity is the Plex Media Server health endpoint: unauthenticated,
+          # returns a tiny XML MediaContainer instantly, and crucially does NOT
+          # touch the library DB or session store. That decouples this SLI from
+          # PMS load — unlike the plex-exporter /metrics scrape, which queries
+          # the Plex API for library+session stats and times out under playback
+          # load (the false-alarm pattern that fired PlexErrorBudgetBurnFast).
+          fail_if_body_not_matched_regexp:
+            - "machineIdentifier"
 
   # ServiceMonitor configuration:
   #   * The chart's `serviceMonitor.targets` mechanism (target-style SMs) is

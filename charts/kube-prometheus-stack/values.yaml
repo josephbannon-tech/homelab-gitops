@@ -281,31 +281,41 @@ kube-prometheus-stack:
         # URLs are stable: when runbooks are authored there, no change here.
         - name: family-services.slo.alerts
           rules:
-            # Fast burn: 14.4× over 1h burns 2% of monthly budget in 1h.
-            # Confirm with 5m to avoid flapping.
+            # SLI is `up{job="plex"}`, i.e. plex-exporter scrape success. That
+            # measures *exporter* health, NOT user-facing Plex reachability.
+            # The exporter builds /metrics by querying the Plex API for library
+            # and session stats; that call's latency tracks how busy PMS is, so
+            # the scrape hits its 10s timeout under playback load and `up` flips
+            # to 0 while family streaming is fine (observed 2026-05-21).
+            #
+            # The real user-facing SLI (blackbox http_plex probe to
+            # 192.168.0.202:32400/identity) is `PlexReachabilityBurnFast` in the
+            # `plex-streaming-real-sli` rules block below. These alerts are
+            # demoted to warning and reworded — kept as a secondary signal on
+            # the exporter→Plex-API path.
             - alert: PlexErrorBudgetBurnFast
               expr: slo:plex:burn_rate:1h > 14.4 and slo:plex:burn_rate:5m > 14.4
               for: 2m
-              labels: {severity: critical, service: plex}
+              labels: {severity: warning, service: plex}
               annotations:
-                summary: "Plex burning SLO budget fast (>14.4x for 1h)"
+                summary: "plex-exporter scrape failing fast (exporter SLI, not user-facing Plex)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
                 threshold: "fast burn >14.4x, sustained 2m"
-                impact: "Plex is unreachable or erroring. At this rate the 0.5% monthly error budget is gone in under 2 days; family streaming is affected."
-                action: "Check Plex Media Server on the Shield (192.168.0.202:32400) and the in-cluster plex-exporter pod."
+                impact: "The plex-exporter to Plex-API path is failing or slow. This is NOT the streaming path — family playback may be perfectly fine. Commonly caused by the exporter /metrics scrape timing out under PMS playback/scan load."
+                action: "Verify real Plex first: `curl -sf http://192.168.0.202:32400/identity`. If that works, this is exporter noise — check plex-exporter pod logs and PMS transcode load."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
             - alert: PlexErrorBudgetBurnSlow
               expr: slo:plex:burn_rate:6h > 6 and slo:plex:burn_rate:30m > 6
               for: 15m
               labels: {severity: warning, service: plex}
               annotations:
-                summary: "Plex burning SLO budget slowly (>6x for 6h)"
+                summary: "plex-exporter scrape failing slowly (exporter SLI, not user-facing Plex)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
                 threshold: "slow burn >6x, sustained 15m"
-                impact: "Plex availability has degraded over 6h; family sessions are likely intermittently affected."
-                action: "Check the Shield host, the network path to Plex, and Plex transcoding load."
+                impact: "plex-exporter scrape success has degraded over 6h. Not the streaming path — verify before escalating."
+                action: "Check `curl -sf http://192.168.0.202:32400/identity` first; if that works, investigate exporter pod restarts or PMS API slowness."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
 
             - alert: MinecraftErrorBudgetBurnFast
@@ -612,6 +622,61 @@ kube-prometheus-stack:
                 impact: "Real user-facing DNS is failing — every device on the LAN cannot resolve names. This is the household-impacting signal, independent of the pihole-exporter scrape."
                 action: "1) `dig @192.168.0.205 +short google.com` from another host; 2) `systemctl status pihole-FTL` on JBDNS01; 3) check upstream resolvers in the Pi-hole admin UI; 4) verify JBDNS01 networking."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/pihole-burn-rate.md"
+
+    # Real user-facing Plex SLI via blackbox-exporter (charts/
+    # prometheus-blackbox-exporter, module http_plex, Probe plex-http). SLI is
+    # probe_success{job="blackbox-plex"} — an actual HTTP GET of Plex Media
+    # Server's /identity endpoint on 192.168.0.202:32400, distinct from the
+    # exporter-scrape SLI `up{job="plex"}` (kept for the demoted warnings
+    # above). /identity does no library/session query, so this signal is
+    # decoupled from PMS playback load — it fires only on real outages.
+    plex-streaming-real-sli:
+      groups:
+        - name: plex-streaming.slo.recording
+          interval: 1m
+          rules:
+            # 99.5% SLO target → error budget = 0.005 (matches the stated Plex SLO)
+            - record: slo:plex_http:availability:ratio_30d
+              expr: avg_over_time(probe_success{job="blackbox-plex"}[30d])
+            - record: slo:plex_http:burn_rate:5m
+              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[5m])) / 0.005
+            - record: slo:plex_http:burn_rate:30m
+              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[30m])) / 0.005
+            - record: slo:plex_http:burn_rate:1h
+              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[1h])) / 0.005
+            - record: slo:plex_http:burn_rate:6h
+              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[6h])) / 0.005
+
+        - name: plex-streaming.slo.alerts
+          rules:
+            # Critical: this is the household-impacting signal. Unlike the
+            # exporter-based PlexErrorBudgetBurnFast (warning), failure here
+            # means Plex Media Server is genuinely unreachable for family
+            # devices, not just slow to answer the exporter.
+            - alert: PlexReachabilityBurnFast
+              expr: slo:plex_http:burn_rate:1h > 14.4 and slo:plex_http:burn_rate:5m > 14.4
+              for: 2m
+              labels: {severity: critical, service: plex}
+              annotations:
+                summary: "Plex unreachable (blackbox http probe to 192.168.0.202:32400/identity)"
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
+                threshold: "fast burn >14.4x, sustained 2m"
+                impact: "Real user-facing Plex is failing — family devices cannot reach the media server. This is the household-impacting signal, independent of the plex-exporter scrape."
+                action: "1) `curl -sf http://192.168.0.202:32400/identity` from another host; 2) check the Shield is powered on and on the network; 3) check Plex Media Server on the Shield; 4) if PMS is up but erroring, check the JBNAS01 SMB media share."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
+            - alert: PlexReachabilityBurnSlow
+              expr: slo:plex_http:burn_rate:6h > 6 and slo:plex_http:burn_rate:30m > 6
+              for: 15m
+              labels: {severity: warning, service: plex}
+              annotations:
+                summary: "Plex reachability degraded (blackbox http probe to 192.168.0.202:32400/identity)"
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
+                threshold: "slow burn >6x, sustained 15m"
+                impact: "Real user-facing Plex has been intermittently unreachable over 6h; family sessions are likely affected."
+                action: "Check the Shield host, the network path to it, and PMS stability; correlate with the JBNAS01 SMB media share."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
 
     # Loki / Promtail health. Both are scraped via ServiceMonitor enabled in
     # charts/loki/values.yaml and charts/promtail/values.yaml. Without these

@@ -564,6 +564,49 @@ kube-prometheus-stack:
                 action: "Check `systemctl status jbvm02-maintenance.timer` on JBVM02."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/jbvm02-maintenance.md"
 
+    # Backup heartbeat staleness. Each backup script writes
+    # backup_last_success_timestamp_seconds{name="..."} via the node_exporter
+    # textfile collector on success; if a script fails or stops scheduling,
+    # the value goes stale and these alerts fire. Two thresholds because
+    # cadence differs: daily/sub-daily scripts vs weekly vzdump jobs.
+    # Added 2026-05-28 after the 2026-05-24 vzdump incident showed VM 101's
+    # backup had been silently failing for 3 weeks with no telemetry.
+    backup-heartbeat-stale:
+      groups:
+        - name: backup.heartbeat.alerts
+          rules:
+            # Daily / sub-daily backup scripts (rsync-style + mc-world-backup
+            # rolling slot + nas-dropbox-mover). 36h covers daily + a 12h
+            # grace window without being so loose that a real outage hides.
+            - alert: BackupHeartbeatStale
+              expr: time() - backup_last_success_timestamp_seconds{name!~"vzdump-.*"} > 129600
+              for: 1h
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "Backup {{ $labels.name }} on {{ $labels.hostname }} has not succeeded in >36h"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "last successful run {{ $value | humanizeDuration }} ago"
+                threshold: "no backup success for >36h (daily-cadence scripts get a 12h grace)"
+                impact: "Backup pipeline {{ $labels.name }} has stopped writing heartbeats. Data being protected by this job is at risk of an undetected gap."
+                action: "Check the script's cron/timer on {{ $labels.hostname }} and `/var/log/{{ $labels.name }}.log` (or `journalctl -t {{ $labels.name }}`)."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/backup-heartbeat-stale.md"
+            # Per-guest vzdump heartbeats. Written by /usr/local/bin/vzdump-heartbeat.sh
+            # on JBSRV01 (Proxmox --script hook). Job runs Sun 04:00; 8d window =
+            # weekly cadence + 1d grace. Series only exists for guests that have
+            # completed at least one backup post-2026-05-28 hook install.
+            - alert: VzdumpHeartbeatStale
+              expr: time() - backup_last_success_timestamp_seconds{name=~"vzdump-.*"} > 691200
+              for: 1h
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "{{ $labels.name }} has not completed a successful backup in >8d"
+                host: "JBSRV01 (192.168.0.200)"
+                value: "last successful vzdump {{ $value | humanizeDuration }} ago"
+                threshold: "no vzdump success for >8 days (weekly cadence + 1d grace)"
+                impact: "Per-guest backup for {{ $labels.name }} has stopped. The matching guest will have no fresh offsite copy after the 2-file retention window cycles."
+                action: "On JBSRV01: check the latest `/var/log/vzdump/*.log` for the matching VMID, the `script` line in `/etc/pve/jobs.cfg`, and `mountpoint /mnt/nas-backups`."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/backup-heartbeat-stale.md"
+
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).
     zfs-pool-health:

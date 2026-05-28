@@ -7,12 +7,16 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
   unprivileged = true
 
   cpu {
-    cores = 2
+    cores = 4
   }
 
   memory {
-    dedicated = 512
+    dedicated = 1024
     swap      = 512
+  }
+
+  features {
+    nesting = true
   }
 
   disk {

@@ -26,6 +26,28 @@ spec:
           # Digest pinned 2026-05-10; corresponds to the :latest tag at that time.
           # Bump deliberately when upstream releases warrant.
           image: ghcr.io/jsclayton/prometheus-plex-exporter@sha256:18ef1b2197efbcb75bd7276380955760995f10a9fbe55106809a6fcff91c2940
+          # The upstream binary exits non-zero if it cannot reach Plex at
+          # startup. Plex runs on a Shield (192.168.0.202) that occasionally
+          # drops off the LAN (reboot/update); without this gate every such
+          # blip becomes a CrashLoopBackOff and fires KubePodCrashLooping +
+          # TargetDown + KubeDeploymentReplicasMismatch on top of the genuine
+          # blackbox PlexReachability alert (incident 2026-05-30). Wait for
+          # Plex, then run the exporter; re-gate on exit so a mid-run drop
+          # parks the container in the wait loop instead of crash-looping.
+          # (An initContainer can't do this: init containers do not re-run
+          # when the main container restarts.)
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              PLEX="${PLEX_SERVER:-http://192.168.0.202:32400}/identity"
+              while true; do
+                until wget -q -T 5 -O /dev/null "$PLEX"; do
+                  echo "plex-exporter: waiting for Plex at $PLEX"; sleep 10
+                done
+                echo "plex-exporter: Plex reachable, starting exporter"
+                /prometheus-plex-exporter || echo "plex-exporter: exporter exited ($?); re-checking Plex"
+                sleep 10
+              done
           ports:
             - name: metrics
               containerPort: 9000
@@ -49,7 +71,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          # /metrics depends on a live Plex connection; readiness-only avoids restart-loops on Wi-Fi blips.
+          # /metrics depends on a live Plex connection. No livenessProbe (the
+          # startup wrapper above, not the probe, is what prevents restart
+          # loops); readiness goes NotReady while the wrapper waits for Plex.
           readinessProbe:
             httpGet:
               path: /metrics

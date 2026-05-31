@@ -607,6 +607,31 @@ kube-prometheus-stack:
                 action: "On JBSRV01: check the latest `/var/log/vzdump/*.log` for the matching VMID, the `script` line in `/etc/pve/jobs.cfg`, and `mountpoint /mnt/nas-backups`."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/backup-heartbeat-stale.md"
 
+    # Media-integrity corruption reports. The verify-gated ingest pipeline
+    # (nas-media-pipeline.sh on JBNAS01) writes one report file per confirmed
+    # corrupt download to /srv/media-corrupt-reports on JBVM01, and exports the
+    # count as media_corrupt_reports_count via the NAS node_exporter textfile
+    # collector. >0 means there is a download needing re-acquisition from a
+    # different source. The alert auto-resolves when the operator deletes the
+    # report file(s) after re-acquiring, since the next pipeline run (~60s)
+    # re-counts and the gauge returns to 0.
+    media-corrupt-reports:
+      groups:
+        - name: media.integrity.alerts
+          rules:
+            - alert: MediaCorruptionDetected
+              expr: media_corrupt_reports_count > 0
+              for: 2m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "{{ $value }} corrupt media download(s) awaiting re-acquisition"
+                host: "JBVM01 (192.168.0.206)"
+                value: "{{ $value }} unresolved corruption report(s)"
+                threshold: "any confirmed-corrupt download (2-pass decode scan) holds the alert open"
+                impact: "One or more downloads failed decode verification and were NOT added to Plex (torrent stopped + files deleted). The media is missing from the library until re-acquired from a different source."
+                action: "On JBVM01, read /srv/media-corrupt-reports/corrupt-*.txt for the download name + release group, re-acquire from a DIFFERENT source, then delete the report file(s) to clear this alert."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/media-corrupt-reports.md"
+
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).
     zfs-pool-health:

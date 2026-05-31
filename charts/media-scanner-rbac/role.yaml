@@ -1,0 +1,41 @@
+# Least-privilege Role for the media-scanner SA. Scoped to the monitoring
+# namespace only. Grants exactly what the NAS mover needs to run + reap a scan
+# Job and read its verdict: nothing else. No secrets, no cluster scope, no
+# access to other workloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: media-scanner
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: media-scanner
+    app.kubernetes.io/part-of: media-integrity-pipeline
+rules:
+  # Create, inspect and clean up scan Jobs.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  # Read the Job's pod and its logs to retrieve the CLEAN/CORRUPT verdict.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: media-scanner
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: media-scanner
+    app.kubernetes.io/part-of: media-integrity-pipeline
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: media-scanner
+subjects:
+  - kind: ServiceAccount
+    name: media-scanner
+    namespace: monitoring

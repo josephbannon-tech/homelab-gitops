@@ -539,17 +539,35 @@ kube-prometheus-stack:
                 impact: "{{ $labels.instance }} is memory-throttled — tasks are stalling for memory, so the host is slow or unresponsive."
                 action: "Check for swap thrashing or a runaway allocation on {{ $labels.instance }} (`free -h`, `ps aux --sort=-%mem`)."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-resource-pressure.md"
+            # Throughput-gated: fire only on high I/O stall WITH low disk
+            # throughput. High stall + high throughput is a healthy host doing
+            # legitimate bulk I/O (e.g. JBNAS01 media ingest over SMB, observed
+            # 2026-06-01 at ~125 MB/s — pools healthy, dmesg clean, self-cleared);
+            # paging on that just trains the on-call to ignore the NAS I/O
+            # warning. High stall at LOW throughput is the signal worth keeping:
+            # a slow/failing device timing out (the marginal-drive pattern shows
+            # near-zero throughput). 30 MB/s floor sits well above that regime
+            # and below the benign-bulk regime; tune if a real workload here
+            # legitimately stalls below it. Tradeoff: a drive failing *during*
+            # heavy ingest (other RAIDZ members carrying throughput) is masked
+            # here — but that surfaces via zpool/dmesg, not PSI.
             - alert: NodeIOThrottled
-              expr: rate(node_pressure_io_stalled_seconds_total[5m]) > 0.10
+              expr: |-
+                rate(node_pressure_io_stalled_seconds_total[5m]) > 0.10
+                  and on(instance)
+                sum by(instance) (
+                    rate(node_disk_read_bytes_total{device=~"sd.*|nvme.*|vd.*|xvd.*"}[5m])
+                  + rate(node_disk_written_bytes_total{device=~"sd.*|nvme.*|vd.*|xvd.*"}[5m])
+                ) < 3e7
               for: 15m
               labels: {severity: warning, service: storage}
               annotations:
-                summary: "{{ $labels.instance }} I/O-throttled {{ $value | humanizePercentage }} of the time"
+                summary: "{{ $labels.instance }} I/O-throttled {{ $value | humanizePercentage }} of the time with low disk throughput"
                 host: "{{ $labels.instance }}"
-                value: "{{ $value | humanizePercentage }} of wall-clock time fully stalled on disk I/O"
-                threshold: "PSI full-stall rate >10% over 5m, sustained 15m"
-                impact: "{{ $labels.instance }} is I/O-throttled — tasks are stalling on disk, so the host is slow."
-                action: "Check `iostat -x` on {{ $labels.instance }} for a saturated device."
+                value: "{{ $value | humanizePercentage }} of wall-clock time fully stalled on disk I/O, while disk throughput is <30 MB/s"
+                threshold: "PSI full-stall >10% over 5m AND disk throughput <30 MB/s, sustained 15m"
+                impact: "{{ $labels.instance }} is stalling on disk while moving little data — points to a slow/failing device timing out, not a busy host. (Legitimate bulk I/O drives throughput high and is intentionally excluded.)"
+                action: "On a NAS, first rule out a benign bulk writer: `smbstatus --locks` (active `_inbox`/media copy = benign). Then look for a slow device: `zpool status` (errors/resilver), `dmesg -T | grep -iE 'ata|reset|timeout|error'`, `zpool iostat -vl 1` (a single member with high disk_wait). See feedback_lsi_hba_quiet_drive_failure / feedback_nas_io_throttle_benign_ingest."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/node-resource-pressure.md"
             - alert: Jbvm02MaintenanceStale
               expr: time() - maintenance_last_success_timestamp_seconds{name="jbvm02-maintenance"} > 691200

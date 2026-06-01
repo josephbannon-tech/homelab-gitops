@@ -53,18 +53,28 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          # Liveness uses TCP, not HTTP /metrics. The exporter's /metrics
-          # endpoint synchronously calls the upstream Pi-hole admin API; a
-          # slow upstream response trips the probe and kubelet kills a
-          # process that is otherwise alive. That behaviour paged
-          # `PiholeErrorBudgetBurn*` on 2026-05-10.
+          # Liveness re-checks /metrics over HTTP. The earlier TCP-only probe
+          # (chosen 2026-05-10 to avoid restarting on slow-upstream blips) could
+          # not detect the actual failure mode: on 2026-06-01 the exporter's
+          # /metrics handler wedged against Pi-hole v6's session API and blocked
+          # for >=10s on every request for 45 min, while the TCP port stayed
+          # open — so TCP liveness passed and kubelet never recovered it (manual
+          # pod delete was required). The httpGet readiness probe below did not
+          # catch it either: the wedged body completes right around 10s, so a
+          # 10s-timeout probe squeaks under while Prometheus's 10s scrape tips
+          # over. This liveness uses a tighter 5s timeout so the slow-body wedge
+          # trips it, and failureThreshold 6 (~3 min of continuous failure)
+          # preserves the 2026-05-10 intent: a transient upstream blip (1-2
+          # scrapes) will not restart a healthy process (a healthy scrape is
+          # ~0.25s). v1.2.0 is the latest release, so there is no version fix.
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /metrics
               port: metrics
             initialDelaySeconds: 30
-            periodSeconds: 60
-            timeoutSeconds: 3
-            failureThreshold: 3
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /metrics

@@ -5,6 +5,8 @@ prometheus-blackbox-exporter:
   #                    (SLI behind PiholeDnsBurnFast)
   #   * http_plex   -> 192.168.0.202:32400/identity -> probe_success{job="blackbox-plex"}
   #                    (SLI behind PlexReachabilityBurnFast)
+  #   * icmp        -> 192.168.0.202 (ICMP echo)      -> probe_success{job="blackbox-plex-icmp"}
+  #                    (L3 liveness of the Shield itself — see icmp module note)
   config:
     modules:
       dns_pihole:
@@ -35,6 +37,24 @@ prometheus-blackbox-exporter:
           # load (the false-alarm pattern that fired PlexErrorBudgetBurnFast).
           fail_if_body_not_matches_regexp:
             - "machineIdentifier"
+      icmp:
+        # L3 liveness of the Shield (192.168.0.202) itself, distinct from the
+        # L7 http_plex probe. Together they classify a Plex outage without
+        # forensics:
+        #   icmp down + http_plex down  -> the Shield is off the LAN
+        #                                  (e.g. an NVIDIA OTA update + reboot,
+        #                                  the confirmed cause of the recurring
+        #                                  Plex outages — see the 2026-05-30
+        #                                  Shield incident in the homelab docs)
+        #   icmp up   + http_plex down  -> the device is up but Plex Media
+        #                                  Server is the problem (app crash,
+        #                                  PMS restart, library lock)
+        # ICMP echo needs CAP_NET_RAW; it is added to the container
+        # securityContext below (the pod still runs non-root, read-only-rootfs).
+        prober: icmp
+        timeout: 5s
+        icmp:
+          preferred_ip_protocol: ip4
 
   # ServiceMonitor configuration:
   #   * The chart's `serviceMonitor.targets` mechanism (target-style SMs) is
@@ -60,6 +80,11 @@ prometheus-blackbox-exporter:
   # Container security context. Upstream defaults are already mostly fine
   # (readOnlyRootFilesystem, runAsNonRoot, drop ALL); we tighten user/group
   # to nobody (65534) to be consistent with the other exporters.
+  # NET_RAW is added back (the only capability) because the `icmp` module
+  # opens a raw socket for ICMP echo. The pod still runs non-root with a
+  # read-only root filesystem and no privilege escalation; NET_RAW alone does
+  # not grant that. Without it the icmp probe fails with
+  # "socket: permission denied" while http_plex/dns_pihole keep working.
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
@@ -67,6 +92,7 @@ prometheus-blackbox-exporter:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
+      add: ["NET_RAW"]
       drop: ["ALL"]
 
   resources:

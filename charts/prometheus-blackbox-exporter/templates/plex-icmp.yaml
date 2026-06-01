@@ -1,0 +1,33 @@
+# Probe CRD: ICMP echo to the Nvidia Shield (192.168.0.202) — the L3 liveness
+# of the device hosting Plex. Produces probe_success{job="blackbox-plex-icmp"}.
+#
+# Companion to plex-http.yaml (L7 Plex /identity). The pair disambiguates a
+# Plex outage on its own:
+#   icmp down + http down  -> Shield off the LAN (e.g. NVIDIA OTA update+reboot)
+#   icmp up   + http down  -> device up, Plex Media Server is the problem
+# Confirmed cause of the recurring outages is the former (Shield OTA reboot);
+# see the 2026-05-30 Shield incident in the private homelab docs.
+#
+# The `icmp` blackbox module needs CAP_NET_RAW (added to the exporter's
+# securityContext in values.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: plex-icmp
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-plex-icmp
+  interval: 30s
+  module: icmp
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - 192.168.0.202
+      labels:
+        hostname: NvidiaShield
+        role: media-server

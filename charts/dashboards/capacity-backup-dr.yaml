@@ -1223,13 +1223,13 @@ data:
         },
         {
           "id": 22,
-          "title": "NAS dropbox mover",
+          "title": "NAS media pipeline",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Time since the NAS dropbox mover last ran. Expected every minute \u2014 yellow at 3m, red at 10m means the mover is stuck and inbound files are piling up.",
+          "description": "Time since the NAS media-integrity ingest pipeline last ran. Expected every minute \u2014 yellow at 3m, red at 10m means the cron is wedged (stuck flock / disabled job) and inbound files are not being verified or moved.",
           "gridPos": {
             "x": 20,
             "y": 51,
@@ -1280,7 +1280,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"nas-dropbox-mover\"}, 0)",
+              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"nas-media-pipeline\"}, 0)",
               "instant": true,
               "legendFormat": "",
               "refId": "A"

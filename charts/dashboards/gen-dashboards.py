@@ -713,10 +713,11 @@ BACKUP_JOBS = [
     ('name="mc-world-backup",slot="rolling"', "MC world (4h)",      18000,  36000,
      "Time since the last 4-hourly rolling Minecraft world snapshot. Yellow "
      "at ~5h, red at ~10h means the short-cadence backup has stalled."),
-    ('name="nas-dropbox-mover"',              "NAS dropbox mover",    180,    600,
-     "Time since the NAS dropbox mover last ran. Expected every minute — "
-     "yellow at 3m, red at 10m means the mover is stuck and inbound files "
-     "are piling up."),
+    ('name="nas-media-pipeline"',             "NAS media pipeline",   180,    600,
+     "Time since the NAS media-integrity ingest pipeline last ran. Expected "
+     "every minute — yellow at 3m, red at 10m means the cron is wedged "
+     "(stuck flock / disabled job) and inbound files are not being verified "
+     "or moved."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,

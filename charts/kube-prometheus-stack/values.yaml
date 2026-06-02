@@ -593,9 +593,10 @@ kube-prometheus-stack:
       groups:
         - name: backup.heartbeat.alerts
           rules:
-            # Daily / sub-daily backup scripts (rsync-style + mc-world-backup
-            # rolling slot + nas-dropbox-mover). 36h covers daily + a 12h
-            # grace window without being so loose that a real outage hides.
+            # Daily / sub-daily backup + liveness heartbeats (rsync-style
+            # config backups + mc-world-backup rolling slot + the every-minute
+            # nas-media-pipeline ingest cron). 36h covers daily + a 12h grace
+            # window without being so loose that a real outage hides.
             - alert: BackupHeartbeatStale
               expr: time() - backup_last_success_timestamp_seconds{name!~"vzdump-.*"} > 129600
               for: 1h
@@ -605,7 +606,7 @@ kube-prometheus-stack:
                 host: "{{ $labels.hostname }} ({{ $labels.instance }})"
                 value: "last successful run {{ $value | humanizeDuration }} ago"
                 threshold: "no backup success for >36h (daily-cadence scripts get a 12h grace)"
-                impact: "Backup pipeline {{ $labels.name }} has stopped writing heartbeats. Data being protected by this job is at risk of an undetected gap."
+                impact: "Job {{ $labels.name }} has stopped writing success heartbeats. Backup jobs: data is at risk of an undetected protection gap. Liveness jobs (e.g. nas-media-pipeline): the cron is wedged or disabled."
                 action: "Check the script's cron/timer on {{ $labels.hostname }} and `/var/log/{{ $labels.name }}.log` (or `journalctl -t {{ $labels.name }}`)."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/backup-heartbeat-stale.md"
             # Per-guest vzdump heartbeats. Written by /usr/local/bin/vzdump-heartbeat.sh

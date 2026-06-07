@@ -1,0 +1,24 @@
+# Exposes the OTel Collector's OTLP receivers to estate hosts OUTSIDE the cluster
+# (the TrueNAS box at 192.168.0.201 ships spans from the media-integrity pipeline).
+# Mirrors the loki-external NodePort pattern. The collector's in-cluster ClusterIP
+# Service is unchanged; this is an additional NodePort view of the same pods.
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector-external
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/instance: otel-collector
+    app.kubernetes.io/name: opentelemetry-collector
+    component: standalone-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      nodePort: 34317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      nodePort: 34318

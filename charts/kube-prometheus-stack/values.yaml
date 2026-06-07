@@ -816,6 +816,39 @@ kube-prometheus-stack:
                 action: "Check the promtail pod on {{ $labels.instance }} and its position file under /run/promtail/."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/promtail-down.md"
 
+    # Tracing stack health. Tempo (trace store) and the OTel Collector (trace
+    # gateway) are scraped via ServiceMonitor. The collector also fronts an OTLP
+    # NodePort (34317/34318) for off-cluster producers like the NAS media
+    # pipeline; if it is down those submissions fail silently, so alert on it.
+    tracing-stack-health:
+      groups:
+        - name: tracing.alerts
+          rules:
+            - alert: OtelCollectorDown
+              expr: up{job="otel-collector"} == 0
+              for: 5m
+              labels: {severity: warning, service: otel-collector}
+              annotations:
+                summary: "OTel Collector is down — trace ingestion stopped"
+                host: "JBK8S01 (192.168.0.207)"
+                value: "OTel Collector scrape failing (up = 0)"
+                threshold: "up{job=otel-collector} == 0, sustained 5m"
+                impact: "Trace ingestion has stopped. Off-cluster OTLP producers (NAS media pipeline via NodePort 34318) fail to export; no spans reach Tempo."
+                action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=opentelemetry-collector`."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/otel-collector-down.md"
+            - alert: TempoDown
+              expr: up{job="tempo"} == 0
+              for: 5m
+              labels: {severity: warning, service: tempo}
+              annotations:
+                summary: "Tempo is down — traces not stored or queryable"
+                host: "JBK8S01 (192.168.0.207)"
+                value: "Tempo scrape failing (up = 0)"
+                threshold: "up{job=tempo} == 0, sustained 5m"
+                impact: "Trace storage/query is down. The OTel Collector cannot flush spans to Tempo and Grafana trace lookups fail."
+                action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=tempo` and the tempo PVC."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/tempo-down.md"
+
     # Clock sync. node_timex_sync_status == 1 means the kernel clock is
     # disciplined by NTP; 0 means it is free-running and drifting. Replaces the
     # upstream NodeClockNotSynchronising alert lost when nodeExporterAlerting

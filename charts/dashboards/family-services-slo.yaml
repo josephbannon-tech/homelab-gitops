@@ -192,7 +192,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Plex availability from the blackbox http probe of /identity (real user-facing reachability), trailing 30 days vs the 99.5% target \u2014 not the exporter-scrape signal.",
+          "description": "Plex availability from the blackbox http probe of /identity (real user-facing reachability), trailing 30 days vs the 99.5% target. Service-hours basis: the 02:00\u201306:00 Shield OTA-reboot window is excluded so the number reflects waking-hours reality, not nightly maintenance.",
           "gridPos": {
             "x": 0,
             "y": 8,
@@ -243,7 +243,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "slo:plex_http:availability:ratio_30d * 100",
+              "expr": "slo:plex_http:availability:ratio_30d_svchours * 100",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -840,13 +840,13 @@ data:
         },
         {
           "id": 13,
-          "title": "Plex server",
+          "title": "Plex reachable (3m)",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "UP = the plex-exporter scrape succeeded (the Plex Media Server process is responding). DOWN = Plex is unreachable.",
+          "description": "UP = the /identity blackbox probe has succeeded within the last 3 minutes (hysteresis: ignores single-sample blips). DOWN = no successful probe for 3m, i.e. genuinely down. Replaces the old up{job=plex} exporter-scrape tile, which flapped red under playback load while streaming was fine.",
           "gridPos": {
             "x": 0,
             "y": 21,
@@ -909,7 +909,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "up{job=\"plex\"}",
+              "expr": "1 - plex:hard_down",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
@@ -1841,6 +1841,410 @@ data:
               "instant": true,
               "legendFormat": "",
               "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 31,
+          "title": "Plex — Playback & Library (is it actually working)",
+          "type": "row",
+          "collapsed": false,
+          "description": "Real end-to-end signals: active streams and transcode load from Tautulli, plus the L3 authenticated library probe. Distinct from the reachability tiles above — these show whether Plex is actually serving media, not just answering.",
+          "gridPos": {
+            "x": 0,
+            "y": 41,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 32,
+          "title": "Active streams",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Current active Plex streams (Tautulli get_activity). Informational — positive proof someone is successfully watching.",
+          "gridPos": {
+            "x": 0,
+            "y": 42,
+            "w": 6,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_stream_count",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 33,
+          "title": "Transcoding now",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Streams currently transcoding (Tautulli). High transcode counts are the main CPU load on the Shield; sustained highs explain reachability/latency wobble.",
+          "gridPos": {
+            "x": 6,
+            "y": 42,
+            "w": 6,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 2
+                  },
+                  {
+                    "color": "orange",
+                    "value": 4
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_stream_count_transcode",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 34,
+          "title": "Direct play",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Streams playing without transcode (Tautulli). The cheap, healthy case.",
+          "gridPos": {
+            "x": 12,
+            "y": 42,
+            "w": 6,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_stream_direct_play",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 35,
+          "title": "Library readable (L3)",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Authenticated GET /library/sections (reads the PMS DB + backing media store). READABLE = Plex can actually serve media. UNREADABLE while reachable above = the 'green but broken' case (SMB mount wedge, incident 2026-06-07).",
+          "gridPos": {
+            "x": 18,
+            "y": 42,
+            "w": 6,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "UNREADABLE",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "READABLE",
+                      "color": "green",
+                      "index": 1
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "1 - plex:library_hard_down",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 36,
+          "title": "Streams: total vs transcode",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Active stream count and how many are transcoding, over time. The gap is direct-play headroom.",
+          "gridPos": {
+            "x": 0,
+            "y": 46,
+            "w": 12,
+            "h": 6
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_stream_count",
+              "legendFormat": "total streams",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_stream_count_transcode",
+              "legendFormat": "transcoding",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 37,
+          "title": "Tautulli bandwidth (LAN / WAN)",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Stream bandwidth Plex is serving, split LAN vs WAN, as reported by Tautulli (kbps).",
+          "gridPos": {
+            "x": 12,
+            "y": 46,
+            "w": 12,
+            "h": 6
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            },
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "max",
+                "mean",
+                "lastNotNull"
+              ]
+            },
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Kbits",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "opacity"
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_bandwidth_lan",
+              "legendFormat": "LAN",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "tautulli_bandwidth_wan",
+              "legendFormat": "WAN",
+              "refId": "B"
             }
           ]
         }

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex-library-probe
+  namespace: monitoring
+  labels:
+    app: plex-library-probe
+spec:
+  selector:
+    app: plex-library-probe
+  ports:
+    - name: metrics
+      port: 9117
+      targetPort: 9117

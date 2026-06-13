@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plex-library-probe-script
+  namespace: monitoring
+  labels:
+    app: plex-library-probe
+data:
+  # L3 "is the library actually queryable" probe. Distinct from the blackbox
+  # http_plex probe (L2), which hits /identity — an endpoint that does NO
+  # library/DB/storage access and so stays green even when the NAS SMB mount
+  # wedges and nothing can play (incident 2026-06-07). This probe authenticates
+  # to Plex and GETs /library/sections, which reads the PMS database and the
+  # backing media store. It is a separate container (not a blackbox module)
+  # because Plex auth is the non-standard X-Plex-Token header, which the
+  # blackbox http prober cannot inject from a file (bearer_token_file emits
+  # Authorization: Bearer, which Plex ignores). Probes on every scrape; stdlib
+  # only, so it runs on a stock python image with no build step.
+  probe.py: |
+    import http.server, os, time, urllib.request, urllib.error
+
+    PLEX = os.environ.get("PLEX_SERVER", "http://192.168.0.202:32400").rstrip("/")
+    TOKEN = os.environ.get("PLEX_TOKEN", "")
+    PATH = os.environ.get("PROBE_PATH", "/library/sections")
+    TIMEOUT = float(os.environ.get("PROBE_TIMEOUT", "8"))
+    PORT = int(os.environ.get("PROBE_PORT", "9117"))
+
+    def probe():
+        req = urllib.request.Request(
+            PLEX + PATH,
+            headers={"X-Plex-Token": TOKEN, "Accept": "application/json"},
+        )
+        start = time.monotonic()
+        code, success = 0, 0
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                code = r.status
+                r.read(1)  # touch the body so a half-open/wedged read counts as failure
+                success = 1 if 200 <= code < 300 else 0
+        except urllib.error.HTTPError as e:
+            code = e.code
+        except Exception:
+            pass
+        return success, code, time.monotonic() - start
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path != "/metrics":
+                self.send_response(404); self.end_headers(); return
+            s, code, dur = probe()
+            body = (
+                "# HELP plex_library_probe_success GET /library/sections returned 2xx (1) or not (0).\n"
+                "# TYPE plex_library_probe_success gauge\n"
+                "plex_library_probe_success %d\n"
+                "# HELP plex_library_probe_http_code Last HTTP status code from the library probe.\n"
+                "# TYPE plex_library_probe_http_code gauge\n"
+                "plex_library_probe_http_code %d\n"
+                "# HELP plex_library_probe_duration_seconds Duration of the library probe request.\n"
+                "# TYPE plex_library_probe_duration_seconds gauge\n"
+                "plex_library_probe_duration_seconds %.4f\n"
+            ) % (s, code, dur)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4")
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+        def log_message(self, *a):
+            return
+
+    if __name__ == "__main__":
+        http.server.HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

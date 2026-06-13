@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plex-library-probe
+  namespace: monitoring
+  labels:
+    app: plex-library-probe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plex-library-probe
+  template:
+    metadata:
+      labels:
+        app: plex-library-probe
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: probe
+          # Stock Python, stdlib only — the probe is mounted from a ConfigMap so
+          # there is no image to build/publish. python:3.12-slim, digest pinned
+          # 2026-06-13. Bump deliberately when upstream releases warrant.
+          image: python:3.12-slim@sha256:a39549e211a16149edf74e5fdc9ef03a6767e46cd987c5048b6659b6c9904c94
+          command: ["python3", "/app/probe.py"]
+          ports:
+            - name: metrics
+              containerPort: 9117
+          env:
+            - name: PLEX_SERVER
+              value: "http://192.168.0.202:32400"
+            # Reuse the single source of the Plex token (also used by
+            # plex-exporter). No new token secret is introduced for L3.
+            - name: PLEX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: plex-exporter-config
+                  key: token
+          resources:
+            requests:
+              cpu: 5m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          # Readiness only: a failed probe means Plex's library is unreadable,
+          # which is exactly what we want to SCRAPE (success=0), not a reason to
+          # restart the prober. The handler always returns 200 with metrics, so
+          # readiness reflects the prober process being alive, not Plex health.
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 9
+            failureThreshold: 3
+          volumeMounts:
+            - name: script
+              mountPath: /app
+      volumes:
+        - name: script
+          configMap:
+            name: plex-library-probe-script

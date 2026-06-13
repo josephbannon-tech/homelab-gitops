@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tautulli-exporter
+  namespace: monitoring
+  labels:
+    app: tautulli-exporter
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: tautulli-exporter
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      relabelings:
+        - targetLabel: job
+          replacement: tautulli
+        - targetLabel: hostname
+          replacement: NvidiaShield
+        - targetLabel: role
+          replacement: media-server

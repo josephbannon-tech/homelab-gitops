@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tautulli-config
+  namespace: monitoring
+  labels:
+    app: tautulli
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # Holds Tautulli's SQLite history DB. Grows slowly with playback history;
+      # 2Gi is ample for a single-server household.
+      storage: 2Gi

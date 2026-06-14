@@ -19,10 +19,16 @@ spec:
       labels:
         app: tautulli
     spec:
+      # The official Tautulli image is an s6 image: its entrypoint MUST start as
+      # root to chown /config and then drops privileges to the tautulli user
+      # (uid 1000) itself. Forcing runAsNonRoot/runAsUser blocks that and the
+      # entrypoint dies with "failed switching to tautulli: operation not
+      # permitted" (CrashLoop, observed on first sync 2026-06-14). So the pod
+      # starts as root; the app process runs as 1000. fsGroup keeps the PVC
+      # group-writable for that process. The monitoring namespace has no
+      # PodSecurity enforcement and already runs root containers (grafana
+      # image-renderer, grafana-password-sync), so this is consistent.
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
@@ -54,7 +60,11 @@ spec:
                 secretKeyRef:
                   name: plex-exporter-config
                   key: token
+          # Pinned to uid 1000 so the seeded config.ini is owned by the user the
+          # app runs as (the main container's entrypoint chowns /config anyway).
           securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
@@ -81,10 +91,9 @@ spec:
             limits:
               cpu: 500m
               memory: 384Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+          # No container securityContext: the s6 entrypoint starts as root and
+          # needs default caps (CHOWN/SETUID/SETGID) to set up /config and drop
+          # to the tautulli user. seccompProfile is inherited from the pod.
           readinessProbe:
             httpGet:
               path: /status

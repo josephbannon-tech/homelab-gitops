@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: plex-library-probe
+  namespace: monitoring
+  labels:
+    app: plex-library-probe
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: plex-library-probe
+  endpoints:
+    - port: metrics
+      # Each scrape triggers one live GET /library/sections against Plex, so the
+      # scrape interval IS the probe interval. 30s matches the blackbox probes.
+      interval: 30s
+      scrapeTimeout: 10s
+      path: /metrics
+      relabelings:
+        - targetLabel: job
+          replacement: plex-library-probe
+        - targetLabel: hostname
+          replacement: NvidiaShield
+        - targetLabel: role
+          replacement: media-server

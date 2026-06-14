@@ -752,36 +752,127 @@ kube-prometheus-stack:
             - record: slo:plex_http:burn_rate:6h
               expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[6h])) / 0.005
 
+            # --- De-noising + maintenance window (added 2026-06-13) -----------
+            # 7 days of probe history showed the /identity SLI was red 3.5% of
+            # the time, but 40 of ~64 outage "episodes" were single 30s samples
+            # (network blips, not real outages) and most multi-minute outages
+            # clustered 02:00–05:00 local — the Shield's nightly OTA reboot
+            # window. Raw 30d availability sat at 96.5% as a result. These rules
+            # separate noise / expected-maintenance / genuine outage.
+
+            # Maintenance window indicator (1 = inside it). hour() is UTC, so
+            # this is 01:00–05:00 UTC = 02:00–06:00 BST / 01:00–05:00 GMT. The
+            # 4h UTC span deliberately covers the observed 02:00–05:00 reboot
+            # cluster in both DST states; widen here if reboots drift.
+            - record: plex:maintenance_window
+              expr: (hour() >= bool 1) * (hour() < bool 5)
+
+            # Hysteresis: hard_down = no successful /identity probe for a full
+            # 3 minutes. This is the trustworthy "Plex is actually down" signal
+            # (dashboards, notifications) — it ignores every single-sample blip.
+            - record: plex:hard_down
+              expr: max_over_time(probe_success{job="blackbox-plex"}[3m]) == bool 0
+
+            # Service-hours availability: probe_success with the maintenance
+            # window carved out (the series simply has no samples 02:00–06:00).
+            # avg_over_time then averages only out-of-window samples, giving an
+            # SLO that reflects waking-hours reality instead of OTA reboots.
+            - record: plex_http:up_svchours
+              expr: probe_success{job="blackbox-plex"} unless on() (plex:maintenance_window == 1)
+            - record: slo:plex_http:availability:ratio_30d_svchours
+              expr: avg_over_time(plex_http:up_svchours[30d])
+
+            # L3 library probe (charts/plex-library-probe): authenticated GET of
+            # /library/sections, which touches the PMS DB + backing media store.
+            # hard_down here with /identity UP = "green but broken" (SMB wedge).
+            - record: plex:library_hard_down
+              expr: max_over_time(plex_library_probe_success[3m]) == bool 0
+
         - name: plex-streaming.slo.alerts
           rules:
             # Critical: this is the household-impacting signal. Unlike the
             # exporter-based PlexErrorBudgetBurnFast (warning), failure here
             # means Plex Media Server is genuinely unreachable for family
             # devices, not just slow to answer the exporter.
+            # Both reachability alerts are gated with `unless ... maintenance_
+            # window == 1`: a routine 02:00–06:00 Shield OTA reboot no longer
+            # pages. Genuine maintenance-hours breakage is still caught by
+            # PlexLibraryUnreadable (library down while /identity up) and
+            # PlexRebootStorm (abnormal reboot clusters), which are NOT gated.
             - alert: PlexReachabilityBurnFast
-              expr: slo:plex_http:burn_rate:1h > 14.4 and slo:plex_http:burn_rate:5m > 14.4
+              expr: (slo:plex_http:burn_rate:1h > 14.4 and slo:plex_http:burn_rate:5m > 14.4) unless on() (plex:maintenance_window == 1)
               for: 2m
               labels: {severity: critical, service: plex}
               annotations:
                 summary: "Plex unreachable (blackbox http probe to 192.168.0.202:32400/identity)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
-                threshold: "fast burn >14.4x, sustained 2m"
+                threshold: "fast burn >14.4x, sustained 2m (suppressed 02:00–06:00 BST maintenance window)"
                 impact: "Real user-facing Plex is failing — family devices cannot reach the media server. This is the household-impacting signal, independent of the plex-exporter scrape."
                 action: "1) `curl -sf http://192.168.0.202:32400/identity` from another host; 2) check the Shield is powered on and on the network; 3) check Plex Media Server on the Shield; 4) if PMS is up but erroring, check the JBNAS01 SMB media share."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
             - alert: PlexReachabilityBurnSlow
-              expr: slo:plex_http:burn_rate:6h > 6 and slo:plex_http:burn_rate:30m > 6
+              expr: (slo:plex_http:burn_rate:6h > 6 and slo:plex_http:burn_rate:30m > 6) unless on() (plex:maintenance_window == 1)
               for: 15m
               labels: {severity: warning, service: plex}
               annotations:
                 summary: "Plex reachability degraded (blackbox http probe to 192.168.0.202:32400/identity)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
-                threshold: "slow burn >6x, sustained 15m"
+                threshold: "slow burn >6x, sustained 15m (suppressed 02:00–06:00 BST maintenance window)"
                 impact: "Real user-facing Plex has been intermittently unreachable over 6h; family sessions are likely affected."
                 action: "Check the Shield host, the network path to it, and PMS stability; correlate with the JBNAS01 SMB media share."
                 runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-burn-rate.md"
+
+            # The sharpest "erroring" signal: Plex answers /identity (L2 up) but
+            # its library is unreadable (L3 down) — the failure mode the /identity
+            # probe is blind to (SMB mount wedge, PMS DB corruption). Critical and
+            # deliberately NOT maintenance-gated; during a reboot /identity is
+            # also down so the right-hand clause is false and this stays quiet.
+            - alert: PlexLibraryUnreadable
+              expr: max_over_time(plex_library_probe_success[5m]) == 0 and on() (max_over_time(probe_success{job="blackbox-plex"}[5m]) == 1)
+              for: 5m
+              labels: {severity: critical, service: plex}
+              annotations:
+                summary: "Plex is up but its library is unreadable (GET /library/sections failing)"
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "plex_library_probe_success = 0 while /identity is up"
+                threshold: "library probe failing 5m with PMS reachable"
+                impact: "Plex Media Server answers but cannot read its library/media — playback fails for everyone even though the reachability probe is green. Classic NAS SMB-mount wedge on the Shield (incident 2026-06-07)."
+                action: "1) On the Shield, check the SMB mount to the Plex media share (remount if wedged); 2) `curl -s -H 'X-Plex-Token: <token>' http://192.168.0.202:32400/library/sections`; 3) check JBNAS01 SMB/NAS health."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-library-unreadable.md"
+
+            # Abnormal reboot clustering (e.g. a failed OTA update retry-looping).
+            # resets() counts 1→0 drops of the reachability probe; >4 in 3h is a
+            # storm, not the single nightly reboot. Catches the maintenance-window
+            # case the gated alerts above intentionally suppress.
+            - alert: PlexRebootStorm
+              expr: resets(probe_success{job="blackbox-plex"}[3h]) > 4
+              for: 5m
+              labels: {severity: warning, service: plex}
+              annotations:
+                summary: "Plex/Shield rebooting repeatedly ({{ $value | printf \"%.0f\" }} drops in 3h)"
+                host: "NvidiaShield (192.168.0.202:32400)"
+                value: "{{ $value | printf \"%.0f\" }} reachability drops in the last 3h"
+                threshold: ">4 probe drops in 3h"
+                impact: "The Shield is going up and down far more than a single nightly OTA reboot — likely a failed update retry-looping or a hardware/network fault. Family Plex is repeatedly interrupted."
+                action: "Check the Shield's system updates / reboot history; if an OTA is failing, intervene on the device. Correlate with JBDNS01 OTA-reboot fingerprint."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/plex-reboot-storm.md"
+
+            # Monitoring-coverage alert (not user-facing): if Tautulli stops
+            # reporting, session/transcode visibility goes dark. Low urgency.
+            - alert: TautulliMonitoringDown
+              expr: min_over_time(tautulli_up[15m]) == 0 or absent(tautulli_up)
+              for: 30m
+              labels: {severity: warning, service: tautulli}
+              annotations:
+                summary: "Tautulli session metrics unavailable (monitoring gap, not a Plex outage)"
+                host: "JBK8S01 (192.168.0.207) → tautulli.monitoring.svc:8181"
+                value: "tautulli_up = 0 or metric absent for 30m"
+                threshold: "tautulli_up == 0 / absent, sustained 30m"
+                impact: "Active-session, transcode and bandwidth metrics for Plex are not being collected. This is a visibility gap, not a user-facing Plex failure — the reachability and library SLIs are unaffected."
+                action: "Check the tautulli and tautulli-exporter pods in the monitoring namespace; verify Tautulli's API key and PMS connection."
+                runbook_url: "https://github.com/jbannon/homelab-runbooks/blob/main/tautulli-down.md"
 
     # Loki / Promtail health. Both are scraped via ServiceMonitor enabled in
     # charts/loki/values.yaml and charts/promtail/values.yaml. Without these

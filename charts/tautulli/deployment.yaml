@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tautulli
+  namespace: monitoring
+  labels:
+    app: tautulli
+spec:
+  replicas: 1
+  # SQLite on a RWO PVC — never run two writers. Recreate avoids a second pod
+  # briefly attaching the same volume during a rolling update.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tautulli
+  template:
+    metadata:
+      labels:
+        app: tautulli
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Seed config.ini on first boot only, substituting the API key and Plex
+        # token from secrets. Idempotent: skips if Tautulli already has a config.
+        - name: seed-config
+          image: busybox:1.37@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              if [ ! -f /config/config.ini ]; then
+                echo "tautulli: seeding config.ini"
+                sed -e "s|__API_KEY__|$TAUTULLI_API_KEY|" \
+                    -e "s|__PMS_TOKEN__|$PLEX_TOKEN|" \
+                    /seed/config.ini.tmpl > /config/config.ini
+              else
+                echo "tautulli: config.ini already present, leaving as-is"
+              fi
+          env:
+            - name: TAUTULLI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tautulli-config
+                  key: api-key
+            - name: PLEX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: plex-exporter-config
+                  key: token
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: seed
+              mountPath: /seed
+      containers:
+        - name: tautulli
+          # Official image, v2.17.1, digest pinned 2026-06-13.
+          # Bump deliberately when upstream releases warrant.
+          image: ghcr.io/tautulli/tautulli:v2.17.1@sha256:112abf6fa1ce352acb7fd96f14eaef3d5d8cda2906e59448bf8fb13b74ad10c1
+          env:
+            - name: TZ
+              value: "Europe/London"
+          ports:
+            - name: http
+              containerPort: 8181
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: tautulli-config
+        - name: seed
+          configMap:
+            name: tautulli-seed

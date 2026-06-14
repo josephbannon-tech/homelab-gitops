@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tautulli-seed
+  namespace: monitoring
+  labels:
+    app: tautulli
+data:
+  # First-boot seed for Tautulli's config.ini so it skips the interactive setup
+  # wizard and connects to Plex headlessly (rebuildable-from-code). The init
+  # container substitutes __API_KEY__ and __PMS_TOKEN__ from secrets and writes
+  # this to the PVC only if no config.ini exists yet; thereafter Tautulli owns
+  # the file. pms_identifier is the Shield's machineIdentifier from
+  # GET /identity (372c77f...), captured 2026-06-13.
+  config.ini.tmpl: |
+    [General]
+    first_run_complete = 1
+    api_enabled = 1
+    api_key = __API_KEY__
+
+    [PMS]
+    pms_ip = 192.168.0.202
+    pms_port = 32400
+    pms_identifier = 372c77f36fc3f10048d30d1bbc0fbc5a1f237f5c
+    pms_name = NvidiaShield
+    pms_ssl = 0
+    pms_is_remote = 0
+    pms_token = __PMS_TOKEN__

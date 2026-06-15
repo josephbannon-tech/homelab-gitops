@@ -740,18 +740,6 @@ kube-prometheus-stack:
         - name: plex-streaming.slo.recording
           interval: 1m
           rules:
-            # 99.5% SLO target → error budget = 0.005 (matches the stated Plex SLO)
-            - record: slo:plex_http:availability:ratio_30d
-              expr: avg_over_time(probe_success{job="blackbox-plex"}[30d])
-            - record: slo:plex_http:burn_rate:5m
-              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[5m])) / 0.005
-            - record: slo:plex_http:burn_rate:30m
-              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[30m])) / 0.005
-            - record: slo:plex_http:burn_rate:1h
-              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[1h])) / 0.005
-            - record: slo:plex_http:burn_rate:6h
-              expr: (1 - avg_over_time(probe_success{job="blackbox-plex"}[6h])) / 0.005
-
             # --- De-noising + maintenance window (added 2026-06-13) -----------
             # 7 days of probe history showed the /identity SLI was red 3.5% of
             # the time, but 40 of ~64 outage "episodes" were single 30s samples
@@ -759,6 +747,10 @@ kube-prometheus-stack:
             # clustered 02:00–05:00 local — the Shield's nightly OTA reboot
             # window. Raw 30d availability sat at 96.5% as a result. These rules
             # separate noise / expected-maintenance / genuine outage.
+            #
+            # ORDER MATTERS: maintenance_window and up_svchours are defined FIRST
+            # so the availability + burn-rate rules below consume the current
+            # eval cycle's value, not the previous one.
 
             # Maintenance window indicator (1 = inside it). hour() is UTC, so
             # this is 01:00–05:00 UTC = 02:00–06:00 BST / 01:00–05:00 GMT. The
@@ -767,20 +759,58 @@ kube-prometheus-stack:
             - record: plex:maintenance_window
               expr: (hour() >= bool 1) * (hour() < bool 5)
 
+            # Two maintenance-window-aware base series, for two different jobs:
+            #
+            # up_svchours: probe_success with the window DROPPED (no samples
+            # 02:00–06:00 BST). Used for the 30d AVAILABILITY SLO — averaging it
+            # gives true service-hours availability (maintenance time excluded
+            # from both numerator and denominator; the stricter, honest figure).
+            - record: plex_http:up_svchours
+              expr: probe_success{job="blackbox-plex"} unless on() (plex:maintenance_window == 1)
+            #
+            # up_burnbase: probe_success with in-window samples MASKED to 1 (up),
+            # NOT dropped. Used for BURN RATE. Masking keeps a FIXED sample
+            # denominator, so a real daytime outage reads the same burn as raw
+            # probe_success would. Dropping (a gappy series) instead shrinks the
+            # denominator near the window edge and over-states the burn there.
+            # In-window downtime contributes 0 either way, so the leak stays
+            # fixed. clamp_max(probe + window, 1): in-window probe(0/1)+1 → 1.
+            - record: plex_http:up_burnbase
+              expr: clamp_max(probe_success{job="blackbox-plex"} + on() group_left() plex:maintenance_window, 1)
+
+            # 99.5% SLO target → error budget = 0.005 (matches the stated Plex SLO).
+            # ratio_30d is raw (counts the nightly OTA window) for reference;
+            # ratio_30d_svchours is the headline figure (excludes it).
+            - record: slo:plex_http:availability:ratio_30d
+              expr: avg_over_time(probe_success{job="blackbox-plex"}[30d])
+            - record: slo:plex_http:availability:ratio_30d_svchours
+              expr: avg_over_time(plex_http:up_svchours[30d])
+
+            # Burn rate over up_burnbase (masked), NOT raw probe_success — the fix
+            # for the maintenance-window LEAK (2026-06-15). The alert-level gate
+            # `unless ... maintenance_window==1` only suppresses firing WHILE the
+            # clock is inside the window, but the 6h/1h burn lookback still reaches
+            # back across it, so on a storm night in-window downtime leaked out and
+            # slow-burn-fired just after 05:00 UTC. up_burnbase masks in-window
+            # samples to "up", so that downtime contributes zero to the burn and
+            # cannot leak — while a genuine daytime outage reads exactly the burn
+            # raw probe_success would (verified 2026-06-15: today's 07:25 BST
+            # ~20-min reboot = 11.4x on both masked and raw). An outage that spans
+            # the window edge still pages once its out-of-window portion accrues.
+            - record: slo:plex_http:burn_rate:5m
+              expr: (1 - avg_over_time(plex_http:up_burnbase[5m])) / 0.005
+            - record: slo:plex_http:burn_rate:30m
+              expr: (1 - avg_over_time(plex_http:up_burnbase[30m])) / 0.005
+            - record: slo:plex_http:burn_rate:1h
+              expr: (1 - avg_over_time(plex_http:up_burnbase[1h])) / 0.005
+            - record: slo:plex_http:burn_rate:6h
+              expr: (1 - avg_over_time(plex_http:up_burnbase[6h])) / 0.005
+
             # Hysteresis: hard_down = no successful /identity probe for a full
             # 3 minutes. This is the trustworthy "Plex is actually down" signal
             # (dashboards, notifications) — it ignores every single-sample blip.
             - record: plex:hard_down
               expr: max_over_time(probe_success{job="blackbox-plex"}[3m]) == bool 0
-
-            # Service-hours availability: probe_success with the maintenance
-            # window carved out (the series simply has no samples 02:00–06:00).
-            # avg_over_time then averages only out-of-window samples, giving an
-            # SLO that reflects waking-hours reality instead of OTA reboots.
-            - record: plex_http:up_svchours
-              expr: probe_success{job="blackbox-plex"} unless on() (plex:maintenance_window == 1)
-            - record: slo:plex_http:availability:ratio_30d_svchours
-              expr: avg_over_time(plex_http:up_svchours[30d])
 
             # L3 library probe (charts/plex-library-probe): authenticated GET of
             # /library/sections, which touches the PMS DB + backing media store.

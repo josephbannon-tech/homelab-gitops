@@ -20,7 +20,16 @@ kube-prometheus-stack:
       runAsUser: 472
       runAsGroup: 472
       fsGroup: 472
-    # Retrieve admin password: kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d
+    # Admin credentials come from the grafana-admin SealedSecret
+    # (charts/secrets/grafana-admin.yaml). Pinning via existingSecret stops the
+    # chart regenerating a random admin password on every render, which rotated
+    # the Secret out from under the SQLite DB on each drift sync and rolled the
+    # deployment daily (login 401s; see homelab docs/observability.md).
+    # Retrieve: kubectl get secret -n monitoring grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
+    admin:
+      existingSecret: grafana-admin
+      userKey: admin-user
+      passwordKey: admin-password
     # Image renderer sidecar (separate Deployment + Service). Powers the
     # /render/* HTTP endpoints used to PNG-snapshot dashboards. The chart
     # auto-configures grafana.ini.rendering.{server_url, callback_url} and

@@ -233,8 +233,14 @@ kube-prometheus-stack:
             # 30-day availability (used by dashboards)
             - record: slo:plex:availability:ratio_30d
               expr: avg_over_time(up{job="plex"}[30d])
+            # mc-monitor drops the server_version label whenever the ping
+            # fails, which forks minecraft_status_healthy into a second series
+            # whose samples are all 0 — recorded verbatim, that phantom pinned
+            # a permanent 0% tile next to the real SLO (seen 2026-08-06).
+            # Merge the identity before averaging; max is exact because
+            # staleness markers hand over cleanly between the two shapes.
             - record: slo:minecraft:availability:ratio_30d
-              expr: avg_over_time(minecraft_status_healthy[30d])
+              expr: avg_over_time((max without (server_version) (minecraft_status_healthy))[30d:5m])
             - record: slo:pihole:availability:ratio_30d
               expr: avg_over_time(up{job="pihole"}[30d])
             - record: slo:nas:availability:ratio_30d
@@ -248,9 +254,9 @@ kube-prometheus-stack:
             - record: slo:plex:burn_rate:1h
               expr: (1 - avg_over_time(up{job="plex"}[1h])) / 0.005
             - record: slo:minecraft:burn_rate:5m
-              expr: (1 - avg_over_time(minecraft_status_healthy[5m])) / 0.01
+              expr: (1 - avg_over_time((max without (server_version) (minecraft_status_healthy))[5m:30s])) / 0.01
             - record: slo:minecraft:burn_rate:1h
-              expr: (1 - avg_over_time(minecraft_status_healthy[1h])) / 0.01
+              expr: (1 - avg_over_time((max without (server_version) (minecraft_status_healthy))[1h:1m])) / 0.01
             - record: slo:pihole:burn_rate:5m
               expr: (1 - avg_over_time(up{job="pihole"}[5m])) / 0.001
             - record: slo:pihole:burn_rate:1h
@@ -270,9 +276,9 @@ kube-prometheus-stack:
             - record: slo:plex:burn_rate:6h
               expr: (1 - avg_over_time(up{job="plex"}[6h])) / 0.005
             - record: slo:minecraft:burn_rate:30m
-              expr: (1 - avg_over_time(minecraft_status_healthy[30m])) / 0.01
+              expr: (1 - avg_over_time((max without (server_version) (minecraft_status_healthy))[30m:1m])) / 0.01
             - record: slo:minecraft:burn_rate:6h
-              expr: (1 - avg_over_time(minecraft_status_healthy[6h])) / 0.01
+              expr: (1 - avg_over_time((max without (server_version) (minecraft_status_healthy))[6h:1m])) / 0.01
             - record: slo:pihole:burn_rate:30m
               expr: (1 - avg_over_time(up{job="pihole"}[30m])) / 0.001
             - record: slo:pihole:burn_rate:6h

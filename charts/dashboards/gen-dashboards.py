@@ -736,11 +736,8 @@ def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,
 CAP_BACKUP_GAPS = """
 ### Residual gaps not covered by heartbeats above
 
-- **JBNAS_MEDIA** is a stripe pool (no parity, no snapshots). Single HDD failure loses 5 TB of Plex library.
+- **JBNAS_MEDIA** is single-parity RAIDZ1 with no snapshots. A second concurrent drive failure loses the ~5 TB media library.
 - **`data` pool**: `_inbox` and `system-state` paths are single-copy (`mc-backups` is now covered via `mc-world-backup`).
-- **JBVM01 credential store** is single-copy on local disk.
-
-Tracked in `project_open_defects.md`.
 """
 
 FS_FILTER = ('fstype!~"tmpfs|overlay|squashfs|devtmpfs|fuse.*|ramfs|autofs|'
@@ -865,7 +862,7 @@ capacity_panels = [
     text_panel(24, "Residual gaps", CAP_BACKUP_GAPS, 6, 48, 18, 4,
                description="Backup/DR coverage gaps not visible in the "
                            "heartbeat tiles above — single-copy paths and "
-                           "no-parity pools, tracked in project_open_defects."),
+                           "single-parity pools."),
 ]
 
 # ── Dashboard 5: Logs + Network / DNS Overview ──────────────────────────────

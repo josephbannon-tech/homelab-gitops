@@ -4,6 +4,8 @@ Personal homelab built from bare metal up. Started as traditional sysadmin work 
 
 The goal isn't a perfect setup. It's understanding why production engineers make the choices they do, not just getting the tools running. [Lessons Learned](#lessons-learned) at the bottom documents what broke along the way.
 
+Two companion repos extract focused pieces of this estate: [homelab-observability](https://github.com/josephbannon-tech/homelab-observability) (SLO methodology, per-alert triage runbooks, dashboards — every alert's `runbook_url` here resolves there) and [homelab-iac](https://github.com/josephbannon-tech/homelab-iac) (OpenTofu Proxmox provisioning).
+
 ---
 
 ## Architecture
@@ -251,7 +253,7 @@ Fix: raise `limits.cpu` (`100m` -> `500m`). Leave `requests.cpu` unchanged; it d
 Symptom: sidecar writes dashboard JSON to `/tmp/dashboards/` but dashboards don't appear in the Grafana UI; sidecar logs show `401 Unauthorized` on the provisioning reload API call.
 Root cause: during initial deploy ArgoCD cycled multiple Grafana ReplicaSets. Each cycle regenerated the `kube-prometheus-stack-grafana` k8s Secret with a new admin password, but the Grafana SQLite database on the persistent volume retained the original. The Secret and the DB diverged silently; the sidecar's reload call used Secret credentials against a DB that didn't match. The same divergence happens on every Renovate-driven chart upgrade.
 Fix: reset the Grafana admin password via `grafana cli admin reset-admin-password` to match the current Secret value. Note: the Grafana container ships BusyBox `wget`, which lacks `--user`/`--password` flags; use `--header "Authorization: Basic $(echo -n user:pass | base64)"` for scripted API calls against the Grafana HTTP API.
-Follow-up: rather than running this recipe by hand after every chart upgrade, an ArgoCD `PostSync` hook (`charts/kube-prometheus-stack/templates/grafana-password-sync-job.yaml`) now reconciles the password automatically. Small Job, narrow RBAC (one Secret + one Deployment in the monitoring namespace), `BeforeHookCreation` cleanup so completed Jobs don't accumulate. Eliminates the manual step entirely; the manual recipe stays in the homelab docs as a fallback for when the Job itself fails. Worth seeing if "I documented a workaround" is good but "I deleted the workaround" is better.
+Follow-up: a `PostSync` hook that re-ran the reset after every sync worked, but treated the symptom. The real fix (since adopted) was pinning the credentials at the source: `grafana.admin.existingSecret` pointing at a `grafana-admin` SealedSecret, so the chart stops minting a fresh password per render and there is nothing left to reconcile. The hook was then deleted. The progression is the lesson: manual recipe, then automation of the recipe, then removing the need for either.
 
 **Sealed Secrets controller refuses to overwrite pre-existing Secrets**
 Symptom: `SealedSecret` CRD applied successfully (status `Synced: True`) but the underlying `Secret` did not change; consumer pod still reading the old value. No errors in the controller logs.
@@ -387,17 +389,28 @@ Lesson: this is the "Alerts on metrics that don't exist evaluate to false foreve
 **The Grafana image renderer breaks on every ArgoCD sync**
 Symptom: dashboard PNG rendering returns `401 Unauthorized` from the image renderer. Restarting the pods fixes it; the next ArgoCD sync breaks it again.
 Root cause: Grafana and the renderer share an auth token from a chart-generated Secret. The chart generates it with `randAlphaNum` behind a `lookup` of the existing Secret -- but ArgoCD renders the chart with `helm template`, which has no cluster connection, so `lookup` returns nothing and a fresh token is produced on every sync. ArgoCD applies the new Secret; the running pods keep the token from their last start; the two no longer match.
-Fix: pin the token so it is stable across renders -- a `SealedSecret` referenced by both Grafana and the renderer -- or a `PostSync` reconcile hook that restarts the pods, mirroring the `grafana-password-sync-job` already in this repo for the identical Grafana-admin-password desync.
+Fix: pin the token so it is stable across renders -- a `SealedSecret` referenced by both Grafana and the renderer, the same pinning that closed the Grafana-admin-password desync. Until then, the workaround is restarting **both** deployments: each pod reads the token env at start, so a renderer-only restart can move the renderer to the new value while Grafana still holds the old one, and the 401s continue.
 Lesson: any Helm chart that keeps a generated value stable via `lookup` is unstable under ArgoCD, because `helm template` has no cluster to look in. Whenever a chart auto-generates a secret, check whether the value survives a `helm template` with no cluster -- if it does not, pin it.
+
+**A recording rule forked into a phantom 0% SLO by a disappearing label**
+Symptom: the Family Services SLO board shows two Minecraft 30-day availability tiles, a real 100% and a red 0%, with the server healthy throughout.
+Diagnosis: `slo:minecraft:availability:ratio_30d` returns two series with identical labels except one lacks `server_version`.
+Root cause: mc-monitor only knows the server version while pings succeed, so during any outage it emits `minecraft_status_healthy` without that label. Different label set means a different series: one identity exists only while healthy (all 1s), the other only while down (all 0s). `avg_over_time` recorded both verbatim, and the down-only identity averages to 0 by construction, pinned for a full 30-day window after any outage.
+Fix: merge the identity before averaging -- `avg_over_time((max without (server_version) (minecraft_status_healthy))[30d:5m])` (PR #59). `max` is exact, not approximate, because Prometheus staleness markers end the vanishing series the moment it leaves the scrape, so the two shapes never overlap.
+Lesson: any label whose presence depends on the target's state must be aggregated away before the value enters a recording rule, or the rule silently forks into per-state series. Found not by an alert but by reviewing a dashboard screenshot for publication -- rendering your boards and actually looking at them is a legitimate audit technique.
 
 ---
 
 ## What's next
 
-- Extract a focused `homelab-iac` repository from the mature `tofu/` subtree (Proxmox VM/LXC modules + cloud-init + Tailscale provisioning) as a sanitised public portfolio piece; doubles as Terraform Associate cert prep
-- Tautulli for session-level Plex metrics: the deployed `plex-exporter` only exposes library and bandwidth totals, not active sessions or transcode counts, which is what the Plex SLO panel actually needs
-- OpenTelemetry instrumentation of internal scripts (`mc-world-backup`, `nas-dropbox-mover`): Tempo + the OTel Collector are wired but no service currently emits OTLP. A small Python snippet per script would light up trace-to-logs and trace-to-metrics correlations end-to-end
-- Tofu state remote backend (S3-compatible via Minio on the NAS, or Terraform Cloud free tier) so state survives a JBVM02 rebuild
+Done since last update: the `homelab-iac` extraction shipped ([public repo](https://github.com/josephbannon-tech/homelab-iac), with cloud-init vendor-data and Pi-hole DNS registration proven end-to-end); Tautulli landed with an L3 library probe and a service-hours Plex SLO (PRs #54/#55); the media pipeline became the estate's first OTLP trace producer (otel-cli, no SDK, strictly fail-open); and the observability methods/runbooks extraction shipped as [homelab-observability](https://github.com/josephbannon-tech/homelab-observability).
+
+Still ahead:
+
+- Bring `gen-dashboards.py` back to parity with the committed `family-services-slo.yaml` (the Tautulli-era panels shipped without their generator changes), then a CI check that regenerates and diffs so the generator can't drift again
+- Alertmanager inhibition so one service outage pages once instead of fanning out kube-level alerts from its exporter
+- OTLP instrumentation of a second, differently-shaped producer (`mc-world-backup`)
+- Tofu state remote backend (S3-compatible via Minio on the NAS) so state survives a JBVM02 rebuild
 - Kubernetes NetworkPolicy resources to restrict pod-to-pod traffic within the cluster
 
 ---

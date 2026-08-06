@@ -321,7 +321,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "The plex-exporter to Plex-API path is failing or slow. This is NOT the streaming path — family playback may be perfectly fine. Commonly caused by the exporter /metrics scrape timing out under PMS playback/scan load."
                 action: "Verify real Plex first: `curl -sf http://192.168.0.202:32400/identity`. If that works, this is exporter noise — check plex-exporter pod logs and PMS transcode load."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-exporter-burn.md"
             - alert: PlexErrorBudgetBurnSlow
               expr: slo:plex:burn_rate:6h > 6 and slo:plex:burn_rate:30m > 6
               for: 15m
@@ -333,7 +333,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m"
                 impact: "plex-exporter scrape success has degraded over 6h. Not the streaming path — verify before escalating."
                 action: "Check `curl -sf http://192.168.0.202:32400/identity` first; if that works, investigate exporter pod restarts or PMS API slowness."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-exporter-burn.md"
 
             - alert: MinecraftErrorBudgetBurnFast
               expr: slo:minecraft:burn_rate:1h > 14.4 and slo:minecraft:burn_rate:5m > 14.4
@@ -346,7 +346,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "The Minecraft server is not answering server-list-ping; active players are being disconnected."
                 action: "Check the minecraft systemd unit on JBVM03 and the JVM heap/GC state."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/minecraft-burn.md"
             - alert: MinecraftErrorBudgetBurnSlow
               expr: slo:minecraft:burn_rate:6h > 6 and slo:minecraft:burn_rate:30m > 6
               for: 15m
@@ -358,7 +358,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m"
                 impact: "Minecraft availability has degraded over 6h — likely a flapping server or restart loop."
                 action: "Investigate JBVM03 logs and ServerStarter restart behaviour."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/minecraft-burn.md"
 
             # SLI is `up{job="pihole"}`, i.e. pihole-exporter scrape success.
             # That measures *exporter* availability, NOT user-facing DNS
@@ -381,7 +381,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "The pihole-exporter to admin-API path is failing. This is NOT the LAN DNS path — household DNS may be perfectly fine."
                 action: "Verify real DNS first: `dig @192.168.0.205 +short google.com`. Then check the pihole-exporter pod and the pihole-FTL admin API (port 80) on the LXC."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-exporter-burn.md"
             - alert: PiholeErrorBudgetBurnSlow
               expr: slo:pihole:burn_rate:6h > 6 and slo:pihole:burn_rate:30m > 6
               for: 15m
@@ -393,7 +393,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m"
                 impact: "pihole-exporter scrape success has degraded over 6h. Not the LAN DNS path — verify before escalating."
                 action: "Check `dig @192.168.0.205 +short google.com` first; if that works, investigate exporter pod restarts or admin-API slowness."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-exporter-burn.md"
 
             - alert: NasErrorBudgetBurnFast
               expr: slo:nas:burn_rate:1h > 14.4 and slo:nas:burn_rate:5m > 14.4
@@ -406,7 +406,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "node-exporter on JBNAS01 is not responding. SMB shares, Plex media, and weekly rsync backups are all affected."
                 action: "Open the Proxmox console on JBSRV01 and check the JBNAS01 VM (VMID 101) — possibly the unclean-shutdown pattern recurring."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/nas-burn.md"
             - alert: NasErrorBudgetBurnSlow
               expr: slo:nas:burn_rate:6h > 6 and slo:nas:burn_rate:30m > 6
               for: 15m
@@ -418,7 +418,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m"
                 impact: "Intermittent NAS scrape failures over 6h; SMB and backup reliability are at risk."
                 action: "Check the JBSRV01 to JBNAS01 network path and the TrueNAS dashboard for ZFS pool errors or panic logs."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/nas-burn.md"
 
             - alert: TailscaleNodeBurnFast
               expr: slo:tailscale:burn_rate:1h > 14.4 and slo:tailscale:burn_rate:5m > 14.4
@@ -431,7 +431,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "tailscaled --debug metrics on {{ $labels.hostname }} are not responding; remote access and any subnet routes it advertises are impaired."
                 action: "Check the tailscaled service on {{ $labels.hostname }} and the Tailscale admin console."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/tailscale-burn.md"
             - alert: TailscaleNodeBurnSlow
               expr: slo:tailscale:burn_rate:6h > 6 and slo:tailscale:burn_rate:30m > 6
               for: 15m
@@ -443,7 +443,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m"
                 impact: "Tailscale node {{ $labels.hostname }} has been flapping over 6h — often DERP relay churn or local interface state."
                 action: "Check the tailscaled journal and the netstack_dropped_packets metric for {{ $labels.hostname }}."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/tailscale-burn.md"
 
     # SMART drive health. Don't alert on smartctl_exit_status raw — it's a
     # bitfield where bit 6 (=64) means "any historical error log entry", which
@@ -465,7 +465,7 @@ kube-prometheus-stack:
                 threshold: "any non-zero raw value, sustained 10m"
                 impact: "Drive {{ $labels.device }} ({{ $labels.model_name }}) shows real media wear or damage. Left unattended this trends toward drive failure and data loss."
                 action: "Run `smartctl -a /dev/{{ $labels.device }}` on JBSRV01 to confirm the trend before planning replacement."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/smart-drive-warning.md"
             - alert: SmartSsdLifeLeftLow
               expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 5
               for: 1h
@@ -477,7 +477,7 @@ kube-prometheus-stack:
                 threshold: "below 5% life remaining, sustained 1h"
                 impact: "SSD {{ $labels.device }} ({{ $labels.model_name }}) is near end of life. Once it crosses the manufacturer threshold the critical SmartDriveStatusFailed alert fires."
                 action: "Plan replacement of {{ $labels.device }} on JBSRV01; identify which pool or VM uses it first."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/smart-drive-warning.md"
             - alert: SmartDriveStatusFailed
               expr: smartctl_device_smart_status == 0
               for: 5m
@@ -489,7 +489,7 @@ kube-prometheus-stack:
                 threshold: "smart_status reports FAILED, sustained 5m"
                 impact: "Drive {{ $labels.device }} has crossed a manufacturer threshold and is expected to fail soon. Data on it is at risk."
                 action: "Replace {{ $labels.device }} immediately if it holds data; check which pool or VM uses it first."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/smart-drive-failed.md"
 
     # Filesystem space across the fleet. No instance filter — these evaluate
     # per series, so every node_exporter target (all 6 hosts) is covered with
@@ -518,7 +518,7 @@ kube-prometheus-stack:
                 threshold: "below 15% free, sustained 1h"
                 impact: "Filesystem {{ $labels.mountpoint }} is trending toward full. If it fills, writes fail and services on the host can crash."
                 action: "Run `df -h` on {{ $labels.instance }}; clear caches and logs or extend the LV."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-filesystem.md"
             - alert: NodeFilesystemCritical
               expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|cifs|nfs|nfs4|fuse.*|smb3|9p",mountpoint!~"/(run|boot/efi).*"} / node_filesystem_size_bytes) * 100 < 5
               for: 15m
@@ -530,7 +530,7 @@ kube-prometheus-stack:
                 threshold: "below 5% free, sustained 15m"
                 impact: "Filesystem {{ $labels.mountpoint }} is nearly full — writes will start failing and services may crash on the next disk write."
                 action: "Free space now: `df -h {{ $labels.mountpoint }}` on {{ $labels.instance }}, clear caches, or extend the LV."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-filesystem.md"
 
     # Host resource pressure across the fleet, measured by kernel PSI (Pressure
     # Stall Information) — the fraction of wall-clock time tasks spend stalled
@@ -555,7 +555,7 @@ kube-prometheus-stack:
                 threshold: "PSI full-stall rate >10% over 5m, sustained 15m"
                 impact: "{{ $labels.instance }} is memory-throttled — tasks are stalling for memory, so the host is slow or unresponsive."
                 action: "Check for swap thrashing or a runaway allocation on {{ $labels.instance }} (`free -h`, `ps aux --sort=-%mem`)."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-resource-pressure.md"
             # Three-gated: fire only on high I/O stall WITH low local-disk
             # throughput WITH a local block device actually saturated. Each gate
             # removes a class of false positive:
@@ -602,8 +602,8 @@ kube-prometheus-stack:
                 value: "{{ $value | humanizePercentage }} of wall-clock time fully stalled on disk I/O, with a local disk busy >50% but throughput <30 MB/s"
                 threshold: "PSI full-stall >10% over 5m AND local throughput <30 MB/s AND local-disk busy >50%, sustained 15m"
                 impact: "{{ $labels.instance }} has a local disk saturated while moving little data — points to a slow/failing device timing out, or heavy swap paging. (Legitimate bulk I/O and network-FS/CIFS stalls are intentionally excluded.)"
-                action: "Rule out memory pressure first: `free -h` / `vmstat 1` (high si/so = swap thrash, not a device). On a NAS, rule out a benign bulk writer: `smbstatus --locks`. Then look for a slow device: `zpool status` (errors/resilver), `dmesg -T | grep -iE 'ata|reset|timeout|error'`, `zpool iostat -vl 1` (a single member with high disk_wait). See feedback_lsi_hba_quiet_drive_failure / feedback_nas_io_throttle_benign_ingest."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                action: "Rule out memory pressure first: `free -h` / `vmstat 1` (high si/so = swap thrash, not a device). On a NAS, rule out a benign bulk writer: `smbstatus --locks`. Then look for a slow device: `zpool status` (errors/resilver), `dmesg -T | grep -iE 'ata|reset|timeout|error'`, `zpool iostat -vl 1` (a single member with high disk_wait). The runbook has the drive-hang and benign-ingest discriminators."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-resource-pressure.md"
             - alert: Jbvm02MaintenanceStale
               expr: time() - maintenance_last_success_timestamp_seconds{name="jbvm02-maintenance"} > 691200
               for: 1h
@@ -615,7 +615,7 @@ kube-prometheus-stack:
                 threshold: "no maintenance success for >8 days"
                 impact: "The weekly disk sweep on JBVM02 has stopped; disk hygiene will drift and the root filesystem can fill unnoticed again."
                 action: "Check `systemctl status jbvm02-maintenance.timer` on JBVM02."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm02-maintenance-stale.md"
 
     # Backup heartbeat staleness. Each backup script writes
     # backup_last_success_timestamp_seconds{name="..."} via the node_exporter
@@ -643,7 +643,7 @@ kube-prometheus-stack:
                 threshold: "no backup success for >36h (daily-cadence scripts get a 12h grace)"
                 impact: "Job {{ $labels.name }} has stopped writing success heartbeats. Backup jobs: data is at risk of an undetected protection gap. Liveness jobs (e.g. nas-media-pipeline): the cron is wedged or disabled."
                 action: "Check the script's cron/timer on {{ $labels.hostname }} and `/var/log/{{ $labels.name }}.log` (or `journalctl -t {{ $labels.name }}`)."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/backup-heartbeat-stale.md"
             # Per-guest vzdump heartbeats. Written by /usr/local/bin/vzdump-heartbeat.sh
             # on JBSRV01 (Proxmox --script hook). Job runs Sun 04:00; 8d window =
             # weekly cadence + 1d grace. Series only exists for guests that have
@@ -659,7 +659,7 @@ kube-prometheus-stack:
                 threshold: "no vzdump success for >8 days (weekly cadence + 1d grace)"
                 impact: "Per-guest backup for {{ $labels.name }} has stopped. The matching guest will have no fresh offsite copy after the 2-file retention window cycles."
                 action: "On JBSRV01: check the latest `/var/log/vzdump/*.log` for the matching VMID, the `script` line in `/etc/pve/jobs.cfg`, and `mountpoint /mnt/nas-backups`."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/backup-heartbeat-stale.md"
 
     # Media-integrity corruption reports. The verify-gated ingest pipeline
     # (nas-media-pipeline.sh on JBNAS01) writes one report file per confirmed
@@ -684,7 +684,7 @@ kube-prometheus-stack:
                 threshold: "any confirmed-corrupt download (2-pass decode scan) holds the alert open"
                 impact: "One or more downloads failed decode verification and were NOT added to Plex (torrent stopped + files deleted). The media is missing from the library until re-acquired from a different source."
                 action: "On JBVM01, read /srv/media-corrupt-reports/corrupt-*.txt for the download name + release group, re-acquire from a DIFFERENT source, then delete the report file(s) to clear this alert."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/media-corruption-detected.md"
 
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).
@@ -703,7 +703,7 @@ kube-prometheus-stack:
                 threshold: "any pool except boot-pool not ONLINE, sustained 5m"
                 impact: "Pool {{ $labels.zpool }} is not healthy. JBNAS_MEDIA is a stripe pool — DEGRADED there means data loss is imminent."
                 action: "Run `zpool status -v {{ $labels.zpool }}` on {{ $labels.hostname }} to triage."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/zfs-pool-not-online.md"
 
     # Real user-facing Pi-hole DNS SLI via blackbox-exporter (charts/
     # prometheus-blackbox-exporter). SLI is probe_success{job="blackbox-dns-pihole"},
@@ -743,7 +743,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m"
                 impact: "Real user-facing DNS is failing — every device on the LAN cannot resolve names. This is the household-impacting signal, independent of the pihole-exporter scrape."
                 action: "1) `dig @192.168.0.205 +short google.com` from another host; 2) `systemctl status pihole-FTL` on JBDNS01; 3) check upstream resolvers in the Pi-hole admin UI; 4) verify JBDNS01 networking."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-dns-burn.md"
 
     # Real user-facing Plex SLI via blackbox-exporter (charts/
     # prometheus-blackbox-exporter, module http_plex, Probe plex-http). SLI is
@@ -827,7 +827,7 @@ kube-prometheus-stack:
                 threshold: "fast burn >14.4x, sustained 2m (suppressed 02:00–06:00 BST maintenance window)"
                 impact: "Real user-facing Plex is failing — family devices cannot reach the media server. This is the household-impacting signal, independent of the plex-exporter scrape."
                 action: "1) `curl -sf http://192.168.0.202:32400/identity` from another host; 2) check the Shield is powered on and on the network; 3) check Plex Media Server on the Shield; 4) if PMS is up but erroring, check the JBNAS01 SMB media share."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-reachability-burn.md"
             - alert: PlexReachabilityBurnSlow
               expr: (slo:plex_http:burn_rate:6h > 6 and slo:plex_http:burn_rate:30m > 6) unless on() (plex:maintenance_window == 1)
               for: 15m
@@ -839,7 +839,7 @@ kube-prometheus-stack:
                 threshold: "slow burn >6x, sustained 15m (suppressed 02:00–06:00 BST maintenance window)"
                 impact: "Real user-facing Plex has been intermittently unreachable over 6h; family sessions are likely affected."
                 action: "Check the Shield host, the network path to it, and PMS stability; correlate with the JBNAS01 SMB media share."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-reachability-burn.md"
 
             # The sharpest "erroring" signal: Plex answers /identity (L2 up) but
             # its library is unreadable (L3 down) — the failure mode the /identity
@@ -857,7 +857,7 @@ kube-prometheus-stack:
                 threshold: "library probe failing 5m with PMS reachable"
                 impact: "Plex Media Server answers but cannot read its library/media — playback fails for everyone even though the reachability probe is green. Classic NAS SMB-mount wedge on the Shield (incident 2026-06-07)."
                 action: "1) On the Shield, check the SMB mount to the Plex media share (remount if wedged); 2) `curl -s -H 'X-Plex-Token: <token>' http://192.168.0.202:32400/library/sections`; 3) check JBNAS01 SMB/NAS health."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-library-unreadable.md"
 
             # Abnormal reboot clustering (e.g. a failed OTA update retry-looping).
             # resets() counts 1→0 drops of the reachability probe; >4 in 3h is a
@@ -874,7 +874,7 @@ kube-prometheus-stack:
                 threshold: ">4 probe drops in 3h"
                 impact: "The Shield is going up and down far more than a single nightly OTA reboot — likely a failed update retry-looping or a hardware/network fault. Family Plex is repeatedly interrupted."
                 action: "Check the Shield's system updates / reboot history; if an OTA is failing, intervene on the device. Correlate with JBDNS01 OTA-reboot fingerprint."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/slo/slo-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-reboot-storm.md"
 
             # Monitoring-coverage alert (not user-facing): if Tautulli stops
             # reporting, session/transcode visibility goes dark. Low urgency.
@@ -889,7 +889,7 @@ kube-prometheus-stack:
                 threshold: "tautulli_up == 0 / absent, sustained 30m"
                 impact: "Active-session, transcode and bandwidth metrics for Plex are not being collected. This is a visibility gap, not a user-facing Plex failure — the reachability and library SLIs are unaffected."
                 action: "Check the tautulli and tautulli-exporter pods in the monitoring namespace; verify Tautulli's API key and PMS connection."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/tautulli-monitoring-down.md"
 
     # Loki / Promtail health. Both are scraped via ServiceMonitor enabled in
     # charts/loki/values.yaml and charts/promtail/values.yaml. Without these
@@ -910,7 +910,7 @@ kube-prometheus-stack:
                 threshold: "up{job=loki} == 0, sustained 5m"
                 impact: "Log ingestion has stopped. Log dashboards go blank and Promtail buffers until disk pressure builds."
                 action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=loki` and the loki PVC."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/verify-promtail-fleet.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/logging-stack-down.md"
             - alert: PromtailDown
               expr: up{job="promtail"} == 0
               for: 5m
@@ -922,7 +922,7 @@ kube-prometheus-stack:
                 threshold: "up{job=promtail} == 0, sustained 5m"
                 impact: "Journal entries from {{ $labels.instance }} are no longer reaching Loki — that host's logs go dark."
                 action: "Check the promtail pod on {{ $labels.instance }} and its position file under /run/promtail/."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/verify-promtail-fleet.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/logging-stack-down.md"
 
     # Tracing stack health. Tempo (trace store) and the OTel Collector (trace
     # gateway) are scraped via ServiceMonitor. The collector also fronts an OTLP
@@ -943,7 +943,7 @@ kube-prometheus-stack:
                 threshold: "up{job=otel-collector} == 0, sustained 5m"
                 impact: "Trace ingestion has stopped. Off-cluster OTLP producers (NAS media pipeline via NodePort 30318) fail to export; no spans reach Tempo."
                 action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=opentelemetry-collector`."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/tracing-stack-down.md"
             - alert: TempoDown
               expr: up{job="tempo"} == 0
               for: 5m
@@ -955,7 +955,7 @@ kube-prometheus-stack:
                 threshold: "up{job=tempo} == 0, sustained 5m"
                 impact: "Trace storage/query is down. The OTel Collector cannot flush spans to Tempo and Grafana trace lookups fail."
                 action: "Check `kubectl -n monitoring describe pod -l app.kubernetes.io/name=tempo` and the tempo PVC."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/tracing-stack-down.md"
 
     # Clock sync. node_timex_sync_status == 1 means the kernel clock is
     # disciplined by NTP; 0 means it is free-running and drifting. Replaces the
@@ -976,4 +976,4 @@ kube-prometheus-stack:
                 threshold: "sync_status == 0, sustained 10m"
                 impact: "The host clock on {{ $labels.instance }} is drifting. Skewed timestamps corrupt log correlation, TLS validation, and backup-age tiles."
                 action: "Check `timedatectl status` and the chrony/systemd-timesyncd service on {{ $labels.instance }}."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/alerting/alert-design.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-clock-skew.md"

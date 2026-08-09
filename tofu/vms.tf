@@ -89,8 +89,12 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     type  = "x86-64-v2-AES"
   }
 
+  # Raised 2048 -> 4096 on 2026-06-02 after NodeIOThrottled fired (PSI io full
+  # ~54%): not a disk fault but swap thrash, with qBittorrent plus a full XFCE
+  # desktop overrunning the 2 GB box. Do not lower without re-testing that.
+  # balloon stays 0 and there is no memory hotplug, so changes need a stop/start.
   memory {
-    dedicated = 2048
+    dedicated = 4096
   }
 
   # discard = "on" is load-bearing, not a tuning knob. `local-lvm` is an
@@ -157,8 +161,12 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
     type  = "x86-64-v2-AES"
   }
 
+  # Raised 8192 -> 12288 on 2026-07-28 after a runaway Claude Code process hit
+  # ~7.5 GB anon RSS and was OOM-killed three times, with the resulting thrash
+  # starving sshd. No memory hotplug (numa: 0, i440FX), so changes need a
+  # stop/start. Do not lower without addressing the sshd guardrail first.
   memory {
-    dedicated = 8192
+    dedicated = 12288
   }
 
   # discard/ssd required for LVM-thin reclaim; see the note on jbvm01.

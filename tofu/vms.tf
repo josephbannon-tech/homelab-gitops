@@ -24,10 +24,19 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
 
   # OS disk only; SATA passthrough disks (JBNAS_MEDIA HDDs, JBNAS_SSD SSDs)
   # are managed outside Tofu — ignore_changes prevents drift detection on them.
+  #
+  # NOTE: because `disk` is in ignore_changes below, this block documents the
+  # live configuration rather than enforcing it. Kept accurate deliberately so
+  # the file is not misleading about how the guest is actually configured.
+  # discard/ssd are required for LVM-thin block reclaim; see the discard note
+  # on jbvm01 below.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
     size         = 32
+    discard      = "on"
+    ssd          = true
+    iothread     = true
   }
 
   network_device = [{
@@ -80,14 +89,27 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     type  = "x86-64-v2-AES"
   }
 
+  # Raised 2048 -> 4096 on 2026-06-02 after NodeIOThrottled fired (PSI io full
+  # ~54%): not a disk fault but swap thrash, with qBittorrent plus a full XFCE
+  # desktop overrunning the 2 GB box. Do not lower without re-testing that.
+  # balloon stays 0 and there is no memory hotplug, so changes need a stop/start.
   memory {
-    dedicated = 2048
+    dedicated = 4096
   }
 
+  # discard = "on" is load-bearing, not a tuning knob. `local-lvm` is an
+  # LVM-thin pool: without it QEMU accepts the guest's SCSI UNMAP and silently
+  # drops it, so the thin volume grows to 100% of its provisioned size and
+  # never shrinks, however much the guest deletes. This guest sat at 95.95%
+  # against a pool at 87.83% before it was set. ssd = true advertises
+  # non-rotational so the guest issues discards in the first place.
+  # Removing either line re-opens the 2026-08-08 thin-pool overcommit incident.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
     size         = 50
+    discard      = "on"
+    ssd          = true
     iothread     = true
   }
 
@@ -139,14 +161,21 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
     type  = "x86-64-v2-AES"
   }
 
+  # Raised 8192 -> 12288 on 2026-07-28 after a runaway Claude Code process hit
+  # ~7.5 GB anon RSS and was OOM-killed three times, with the resulting thrash
+  # starving sshd. No memory hotplug (numa: 0, i440FX), so changes need a
+  # stop/start. Do not lower without addressing the sshd guardrail first.
   memory {
-    dedicated = 8192
+    dedicated = 12288
   }
 
+  # discard/ssd required for LVM-thin reclaim; see the note on jbvm01.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
     size         = 32
+    discard      = "on"
+    ssd          = true
     iothread     = true
   }
 
@@ -202,6 +231,10 @@ resource "proxmox_virtual_environment_vm" "jbvm03" {
     dedicated = 14336
   }
 
+  # discard = "on" was already set here, which is why this was the only guest
+  # not badly overgrown in the 2026-08-08 thin-pool incident (49.36% vs 94-98%
+  # on its siblings). No ssd/iothread: matches the live config, and
+  # virtio-scsi-pci does not support iothread.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
@@ -266,10 +299,14 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
     dedicated = 8192
   }
 
+  # discard/ssd required for LVM-thin reclaim; see the note on jbvm01.
+  # No iothread: scsi_hardware is virtio-scsi-pci, which does not support it.
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
     size         = 40
+    discard      = "on"
+    ssd          = true
   }
 
   network_device = [{

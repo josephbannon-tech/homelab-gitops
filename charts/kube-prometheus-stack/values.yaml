@@ -532,6 +532,49 @@ kube-prometheus-stack:
                 action: "Free space now: `df -h {{ $labels.mountpoint }}` on {{ $labels.instance }}, clear caches, or extend the LV."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-filesystem.md"
 
+    # Hypervisor storage allocation, from PVE Exporter. Deliberately separate
+    # from node.disk.alerts above: that rule watches filesystems *inside* hosts
+    # and cannot see a Proxmox storage at all.
+    #
+    # The thresholds are lower than they look because `local-lvm` is an
+    # LVM-thin pool, where "full" is categorically worse than a full
+    # filesystem. Guests are over-provisioned against it (198G provisioned into
+    # a 195G pool as of 2026-08), so at 100% allocation *every guest* takes I/O
+    # errors at once, and deleting files inside a guest does not help unless
+    # discard reaches the pool. Recovery needs the hypervisor, so this must
+    # page well before the cliff rather than at it.
+    #
+    # Added after the 2026-08-08 incident, where the pool reached 87.83%
+    # allocated with nothing watching it and was found by accident.
+    pve-storage-capacity:
+      groups:
+        - name: pve.storage.alerts
+          rules:
+            - alert: PveStorageAllocationHigh
+              expr: 100 * pve_disk_usage_bytes{id=~"storage/.*"} / pve_disk_size_bytes > 75
+              for: 1h
+              labels: {severity: warning, service: storage}
+              annotations:
+                summary: "Proxmox storage {{ $labels.id }} at {{ $value | printf \"%.0f\" }}% allocated"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "{{ $value | printf \"%.1f\" }}% allocated"
+                threshold: "above 75% allocated, sustained 1h"
+                impact: "Headroom on a hypervisor storage is shrinking. For the thin pools (local-lvm, local-lvm-m2) this is the early warning for a condition that takes every guest down at once, and thin pools only ever grow unless the guests discard."
+                action: "On JBSRV01: `pvesm status` and `lvs -o lv_name,data_percent,metadata_percent`. If a thin pool is the offender, check `qm config <vmid> | grep scsi0` shows `discard=on` for each guest, then run `fstrim -av` in the guest (or `pct fstrim <id>` for an LXC) and re-measure with `lvs`."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pve-storage-capacity.md"
+            - alert: PveStorageAllocationCritical
+              expr: 100 * pve_disk_usage_bytes{id=~"storage/.*"} / pve_disk_size_bytes > 85
+              for: 15m
+              labels: {severity: critical, service: storage}
+              annotations:
+                summary: "Proxmox storage {{ $labels.id }} critically allocated ({{ $value | printf \"%.0f\" }}%)"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "{{ $value | printf \"%.1f\" }}% allocated"
+                threshold: "above 85% allocated, sustained 15m"
+                impact: "On a thin pool this is close to the cliff: at 100% every guest backed by it takes simultaneous I/O errors, and guests cannot recover themselves. On a directory or NFS storage, backups and new disks will start failing."
+                action: "Reclaim now, do not investigate first. `lvs -o lv_name,data_percent` on JBSRV01 to find the largest consumers, then `fstrim -av` inside each guest that has `discard=on`. Guests missing `discard=on` need `qm set <vmid> --scsi0 <existing>,discard=on,ssd=1` (preserve every existing option; `qm set` drops what you omit) and a stop/start."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pve-storage-capacity.md"
+
     # Host resource pressure across the fleet, measured by kernel PSI (Pressure
     # Stall Information) — the fraction of wall-clock time tasks spend stalled
     # waiting on memory or I/O. PSI is used deliberately instead of a

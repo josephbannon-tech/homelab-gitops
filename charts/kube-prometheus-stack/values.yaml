@@ -729,6 +729,41 @@ kube-prometheus-stack:
                 action: "On JBVM01, read /srv/media-corrupt-reports/corrupt-*.txt for the download name + release group, re-acquire from a DIFFERENT source, then delete the report file(s) to clear this alert."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/media-corruption-detected.md"
 
+    # JBVM01's write-only SMB dropbox (/mnt/nas-media, fstab + x-systemd.automount).
+    # Deliberately excluded from the generic NodeFilesystem* rules (its "free
+    # space" is a NAS-side user quota, not a local disk), so these two rules are
+    # its only coverage. Absent = no live CIFS mount exported while the exporter
+    # itself is up (automount gone -> downloads silently land on the 50 GB local
+    # root disk; the 2026-08-08 incident shape). Unhealthy = mount present but
+    # statfs erroring (wedged SMB client session). The 15m hold on Absent rides
+    # out reboots: under automount the CIFS mount only appears on first access.
+    nas-dropbox-mount:
+      groups:
+        - name: nas-dropbox.mount.alerts
+          rules:
+            - alert: NasDropboxMountAbsent
+              expr: (up{instance="192.168.0.206", job="node-exporter-external"} == 1) and on() absent(node_filesystem_device_error{instance="192.168.0.206", mountpoint="/mnt/nas-media", fstype="cifs"})
+              for: 15m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "JBVM01 NAS dropbox /mnt/nas-media has no live CIFS mount"
+                host: "JBVM01 (192.168.0.206)"
+                threshold: "node_exporter up but no cifs filesystem series for the mountpoint, sustained 15m"
+                impact: "If the automount unit is gone the path is a plain directory and qBittorrent downloads silently land on JBVM01's 50 GB root disk while looking fine. If only the CIFS mount is failing (NAS down / share broken), writes fail loudly instead - still a pipeline outage."
+                action: "On JBVM01: `findmnt -o FSTYPE,SOURCE,TARGET /mnt/nas-media` - healthy shows an autofs trigger AND a cifs mount. Trigger with a WRITE probe (touch + rm under _inbox/movies/), never `ls` (write-only ACL denies listing by design). If the automount unit is missing, restore fstab + `systemctl start 'mnt-nas\\x2dmedia.automount'`, then audit for files that landed locally."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm01-nas-dropbox-mount.md"
+            - alert: NasDropboxMountUnhealthy
+              expr: node_filesystem_device_error{instance="192.168.0.206", mountpoint="/mnt/nas-media", fstype="cifs"} == 1
+              for: 10m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "JBVM01 NAS dropbox mount is erroring (statfs failing)"
+                host: "JBVM01 (192.168.0.206)"
+                threshold: "node_filesystem_device_error == 1 for the cifs mount, sustained 10m"
+                impact: "The dropbox mount exists but operations on it are failing - the fingerprint of a wedged SMB client session. qBittorrent writes and the media-integrity pipeline stall until the session is bounced."
+                action: "Confirm the NAS answers SMB from another host first. If the NAS is fine, remount on the CLIENT: stop qBittorrent, `umount /mnt/nas-media`, re-trigger with a write probe, restart qBittorrent."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm01-nas-dropbox-mount.md"
+
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that
     # reports per-vdev state (false-positive on transient resilvers).
     zfs-pool-health:

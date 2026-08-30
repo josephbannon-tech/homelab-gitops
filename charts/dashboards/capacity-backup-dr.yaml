@@ -1289,6 +1289,204 @@ data:
         },
         {
           "id": 23,
+          "title": "JBNAS01 config",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Time since the last successful TrueNAS config backup (config DB + pwenc secret). Expected daily \u2014 red at ~50h means the NAS identity needed for a rebuild is no longer being captured.",
+          "gridPos": {
+            "x": 0,
+            "y": 55,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "dtdurations",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 90000
+                  },
+                  {
+                    "color": "red",
+                    "value": 180000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"jbnas01-config-backup\"}, 0)",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "title": "Satisfactory save",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Time since the Satisfactory save archive last landed on the NAS. Expected daily \u2014 red at ~50h means family game progress is unprotected.",
+          "gridPos": {
+            "x": 4,
+            "y": 55,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "dtdurations",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 90000
+                  },
+                  {
+                    "color": "red",
+                    "value": 180000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"satisfactory-save-backup\"}, 0)",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "title": "Off-site seed",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Time since the last successful restic push of the LLM-rebuildable seed to off-site storage. Expected daily \u2014 red at ~50h means the estate's only off-site copy is going stale.",
+          "gridPos": {
+            "x": 8,
+            "y": 55,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "dtdurations",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 90000
+                  },
+                  {
+                    "color": "red",
+                    "value": 180000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"offsite-seed-backup\"}, 0)",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 26,
           "title": "Textfile scrape error (any host)",
           "type": "stat",
           "datasource": {
@@ -1298,7 +1496,7 @@ data:
           "description": "1 if any host's node-exporter textfile collector is broken or unreadable. Disambiguates 'textfile dir missing' from 'all backups genuinely failed' \u2014 the former lights every backup tile red at once.",
           "gridPos": {
             "x": 0,
-            "y": 55,
+            "y": 59,
             "w": 6,
             "h": 4
           },
@@ -1350,13 +1548,13 @@ data:
           ]
         },
         {
-          "id": 24,
+          "id": 27,
           "title": "Residual gaps",
           "type": "text",
           "description": "Backup/DR coverage gaps not visible in the heartbeat tiles above \u2014 single-copy paths and single-parity pools.",
           "gridPos": {
             "x": 6,
-            "y": 55,
+            "y": 59,
             "w": 18,
             "h": 4
           },

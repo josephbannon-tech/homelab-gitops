@@ -776,6 +776,18 @@ BACKUP_JOBS = [
      "every minute — yellow at 3m, red at 10m means the cron is wedged "
      "(stuck flock / disabled job) and inbound files are not being verified "
      "or moved."),
+    ('name="jbnas01-config-backup"',          "JBNAS01 config",     90000, 180000,
+     "Time since the last successful TrueNAS config backup (config DB + "
+     "pwenc secret). Expected daily — red at ~50h means the NAS identity "
+     "needed for a rebuild is no longer being captured."),
+    ('name="satisfactory-save-backup"',       "Satisfactory save",  90000, 180000,
+     "Time since the Satisfactory save archive last landed on the NAS. "
+     "Expected daily — red at ~50h means family game progress is "
+     "unprotected."),
+    ('name="offsite-seed-backup"',            "Off-site seed",      90000, 180000,
+     "Time since the last successful restic push of the LLM-rebuildable "
+     "seed to off-site storage. Expected daily — red at ~50h means the "
+     "estate's only off-site copy is going stale."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,
@@ -904,20 +916,20 @@ capacity_panels = [
 
     row(16, "Backup / DR Status: last successful heartbeat per job", 43),
     *[backup_age_stat(17 + i, title, selector,
-                      (i % 6) * 4, 44, 4, 4, yellow_s, red_s,
+                      (i % 6) * 4, 44 + (i // 6) * 4, 4, 4, yellow_s, red_s,
                       description=desc)
       for i, (selector, title, yellow_s, red_s, desc) in enumerate(BACKUP_JOBS)],
     # Meta-tile separates "textfile dir missing or unreadable" from "all
-    # backups failed simultaneously". Without it the 6 tiles above light red
-    # in unison and the real cause hides.
-    stat(23, "Textfile scrape error (any host)",
+    # backups failed simultaneously". Without it the backup tiles above light
+    # red in unison and the real cause hides.
+    stat(26, "Textfile scrape error (any host)",
          'max(node_textfile_scrape_error{job="node-exporter-external"})',
-         "short", 0, 48, 6, 4, thresholds=ZERO_GREEN_ONE_RED,
+         "short", 0, 52, 6, 4, thresholds=ZERO_GREEN_ONE_RED,
          description="1 if any host's node-exporter textfile collector is "
                      "broken or unreadable. Disambiguates 'textfile dir "
                      "missing' from 'all backups genuinely failed' — the "
                      "former lights every backup tile red at once."),
-    text_panel(24, "Residual gaps", CAP_BACKUP_GAPS, 6, 48, 18, 4,
+    text_panel(27, "Residual gaps", CAP_BACKUP_GAPS, 6, 52, 18, 4,
                description="Backup/DR coverage gaps not visible in the "
                            "heartbeat tiles above — single-copy paths and "
                            "single-parity pools."),

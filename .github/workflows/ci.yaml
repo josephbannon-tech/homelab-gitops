@@ -18,6 +18,20 @@ jobs:
       - run: pip install yamllint
       - run: yamllint -c .yamllint.yaml .
 
+  dashboards-in-sync:
+    name: Dashboard generator is source of truth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Regenerate dashboards and fail on drift
+        run: |
+          python3 charts/dashboards/gen-dashboards.py
+          if ! git diff --exit-code charts/dashboards/; then
+            echo "::error::Committed dashboard YAML does not match gen-dashboards.py output."
+            echo "::error::Either regenerate after editing the generator, or port manual YAML edits into the generator."
+            exit 1
+          fi
+
   helm-lint:
     name: Helm lint
     runs-on: ubuntu-latest

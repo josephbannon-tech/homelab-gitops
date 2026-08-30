@@ -1846,10 +1846,10 @@ data:
         },
         {
           "id": 31,
-          "title": "Plex — Playback & Library (is it actually working)",
+          "title": "Plex \u2014 Playback & Library (is it actually working)",
           "type": "row",
           "collapsed": false,
-          "description": "Real end-to-end signals: active streams and transcode load from Tautulli, plus the L3 authenticated library probe. Distinct from the reachability tiles above — these show whether Plex is actually serving media, not just answering.",
+          "description": "Real end-to-end signals: active streams and transcode load from Tautulli, plus the L3 authenticated library probe. Distinct from the reachability tiles above \u2014 these show whether Plex is actually serving media, not just answering.",
           "gridPos": {
             "x": 0,
             "y": 41,
@@ -1866,7 +1866,7 @@ data:
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Current active Plex streams (Tautulli get_activity). Informational — positive proof someone is successfully watching.",
+          "description": "Current active Plex streams (Tautulli get_activity). Informational \u2014 positive proof someone is successfully watching.",
           "gridPos": {
             "x": 0,
             "y": 42,

@@ -64,7 +64,8 @@ def row(id, title, y, description=""):
             "gridPos": {"x": 0, "y": y, "w": 24, "h": 1}, "panels": []}
 
 def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None,
-         color_mode="background", ds=None, description="", mappings=None):
+         color_mode="background", ds=None, description="", mappings=None,
+         graph_mode="none"):
     ds = ds or DS
     return {
         "id": id, "title": title, "type": "stat", "datasource": ds,
@@ -72,7 +73,7 @@ def stat(id, title, expr, unit, x, y, w, h, legend="", thresholds=None,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "options": {
             "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
-            "colorMode": color_mode, "graphMode": "none",
+            "colorMode": color_mode, "graphMode": graph_mode,
             "justifyMode": "auto", "orientation": "auto", "textMode": "auto"
         },
         "fieldConfig": {
@@ -550,10 +551,13 @@ _BURN_DESC = ("SLO error-budget burn rate over 5m/1h/6h windows. 1.0 = "
 slo_panels = [
     row(1, "30-Day SLO Compliance (target lines: red=below, green=above)", 0),
     stat_with_target_color(2, "Plex (real probe, 99.5%)",
-        "slo:plex_http:availability:ratio_30d * 100", "percent", 0, 1, 5, 4, 99.5,
+        "slo:plex_http:availability:ratio_30d_svchours * 100", "percent", 0, 1, 5, 4, 99.5,
         description="Plex availability from the blackbox http probe of "
                     "/identity (real user-facing reachability), trailing 30 "
-                    "days vs the 99.5% target — not the exporter-scrape signal."),
+                    "days vs the 99.5% target. Service-hours basis: the "
+                    "02:00–06:00 Shield OTA-reboot window is excluded so the "
+                    "number reflects waking-hours reality, not nightly "
+                    "maintenance."),
     stat_with_target_color(3, "Minecraft (target 99.0%)",
         "slo:minecraft:availability:ratio_30d * 100", "percent", 5, 1, 5, 4, 99.0,
         description="Minecraft server availability over the trailing 30 days "
@@ -597,11 +601,14 @@ slo_panels = [
                "short", 18, 6, 6, 7, fill=0, description=_BURN_DESC),
 
     row(12, "Plex", 13),
-    stat(13, "Plex server", 'up{job="plex"}', "short", 0, 14, 6, 4,
+    stat(13, "Plex reachable (3m)", "1 - plex:hard_down", "short", 0, 14, 6, 4,
          thresholds=ZERO_RED_ONE_GREEN, mappings=UP_DOWN,
-         description="UP = the plex-exporter scrape succeeded (the Plex Media "
-                     "Server process is responding). DOWN = Plex is "
-                     "unreachable."),
+         description="UP = the /identity blackbox probe has succeeded within "
+                     "the last 3 minutes (hysteresis: ignores single-sample "
+                     "blips). DOWN = no successful probe for 3m, i.e. "
+                     "genuinely down. Replaces the old up{job=plex} "
+                     "exporter-scrape tile, which flapped red under playback "
+                     "load while streaming was fine."),
     stat(14, "Library size",
          'sum(library_storage_total{server_type="plex"})', "bytes", 6, 14, 6, 4,
          thresholds=GREEN_ONLY,
@@ -688,6 +695,57 @@ slo_panels = [
          thresholds=GREEN_ONLY,
          description="Count of Tailscale nodes currently reporting up. "
                      "Informational; a drop means a node left the mesh."),
+
+    # Playback & Library row (2026-06-14 Tautulli overhaul, gitops PRs #54/#55).
+    # These are the "is it actually working" signals, distinct from the
+    # reachability tiles: streams/transcodes from Tautulli plus the L3
+    # authenticated library probe that catches the green-but-broken case.
+    row(31, "Plex — Playback & Library (is it actually working)", 34,
+        description="Real end-to-end signals: active streams and transcode "
+                    "load from Tautulli, plus the L3 authenticated library "
+                    "probe. Distinct from the reachability tiles above — "
+                    "these show whether Plex is actually serving media, not "
+                    "just answering."),
+    stat(32, "Active streams", "tautulli_stream_count", "short", 0, 35, 6, 4,
+         thresholds=GREEN_ONLY, graph_mode="area",
+         description="Current active Plex streams (Tautulli get_activity). "
+                     "Informational — positive proof someone is successfully "
+                     "watching."),
+    stat(33, "Transcoding now", "tautulli_stream_count_transcode", "short",
+         6, 35, 6, 4, graph_mode="area",
+         thresholds={"mode": "absolute",
+                     "steps": [{"color": "green", "value": None},
+                               {"color": "yellow", "value": 2},
+                               {"color": "orange", "value": 4}]},
+         description="Streams currently transcoding (Tautulli). High "
+                     "transcode counts are the main CPU load on the Shield; "
+                     "sustained highs explain reachability/latency wobble."),
+    stat(34, "Direct play", "tautulli_stream_direct_play", "short", 12, 35, 6, 4,
+         thresholds=GREEN_ONLY, graph_mode="area",
+         description="Streams playing without transcode (Tautulli). The "
+                     "cheap, healthy case."),
+    stat(35, "Library readable (L3)", "1 - plex:library_hard_down", "short",
+         18, 35, 6, 4, thresholds=ZERO_RED_ONE_GREEN,
+         mappings=value_map({"0": ("UNREADABLE", "red"),
+                             "1": ("READABLE", "green")}),
+         description="Authenticated GET /library/sections (reads the PMS DB "
+                     "+ backing media store). READABLE = Plex can actually "
+                     "serve media. UNREADABLE while reachable above = the "
+                     "'green but broken' case (SMB mount wedge, incident "
+                     "2026-06-07)."),
+    timeseries(36, "Streams: total vs transcode",
+               [t("tautulli_stream_count", "total streams"),
+                t("tautulli_stream_count_transcode", "transcoding", "B")],
+               "short", 0, 39, 12, 6,
+               description="Active stream count and how many are "
+                           "transcoding, over time. The gap is direct-play "
+                           "headroom."),
+    timeseries(37, "Tautulli bandwidth (LAN / WAN)",
+               [t("tautulli_bandwidth_lan", "LAN"),
+                t("tautulli_bandwidth_wan", "WAN", "B")],
+               "Kbits", 12, 39, 12, 6,
+               description="Stream bandwidth Plex is serving, split LAN vs "
+                           "WAN, as reported by Tautulli (kbps)."),
 ]
 
 # ── Dashboard 4: Capacity / Growth / Backup-DR ───────────────────────────────

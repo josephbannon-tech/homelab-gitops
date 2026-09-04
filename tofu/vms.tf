@@ -412,8 +412,9 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     }
   }
 
-  # Provisioning posture: started now for the build; the parking commit will
-  # flip started=false + keep on_boot=false once benches are recorded.
+  # PARKED (on-demand posture): zero host RAM while stopped. Wake with
+  # `qm start 108` (~1 min boot + ~2 min model load); benches recorded
+  # 2026-09-04 in the private KB (inference.md): tg 3.8-4.0 t/s, pp512 18 t/s.
   on_boot = false
-  started = true
+  started = false
 }

@@ -1,0 +1,82 @@
+open-webui:
+  # --- Topology: one replica, SQLite on a ReadWriteOnce PVC -------------------
+  # Upstream: Postgres/Redis/RWX are multi-replica requirements; >1 replica on
+  # SQLite corrupts data. Single-node k3s => one replica by design.
+  # The chart renders a StatefulSet: with one replica a rollout deletes the old
+  # pod before creating the new one, so the RWO PVC is never double-attached.
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/open-webui/open-webui
+    tag: "0.11.3"  # chart 16.5.0 appVersion; pinned so Renovate tracks it
+
+  # --- Bundled components OFF --------------------------------------------------
+  # Models come from the estate llm-router, not an in-cluster Ollama. No
+  # Pipelines sidecar. No Redis: the in-memory websocket manager is the correct
+  # choice for a single replica.
+  ollama:
+    enabled: false
+  pipelines:
+    enabled: false
+  websocket:
+    enabled: true
+    manager: ""
+    redis:
+      enabled: false
+
+  # --- Model endpoint: llm-router on JBVM02 (wake-on-demand front door) ----------
+  # Every chat inherits WoL of the fast tier. Big-tier / -dm profiles appear in
+  # the picker automatically when the router lists them.
+  enableOpenaiApi: true
+  openaiBaseApiUrl: "http://192.168.0.203:9081/v1"
+  # Neither the router nor llama-server checks auth; this is a placeholder the
+  # OpenAI client insists on, not a secret.
+  openaiApiKey: "not-used"
+
+  # --- Storage: local-path PVC (Loki/Tempo pattern) ------------------------------
+  # Holds the SQLite DB, uploads, and the RAG vector store. Backup: nightly
+  # sqlite-backup + tar to the NAS with a heartbeat (follow-up, see plan doc).
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 5Gi
+    accessModes:
+      - ReadWriteOnce
+
+  # --- Exposure: NodePort on the LAN, reachable over the tailnet via the subnet
+  # router. Never public. PWA install = browse + Add to Home Screen.
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30081
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # First-run seeds only: Open WebUI persists these in its DB after first boot
+  # (PersistentConfig), after which the Admin UI is the source of truth.
+  # (ENABLE_OLLAMA_API=False is set by the chart itself when ollama.enabled=false.)
+  extraEnvVars:
+    # Nothing-leaves posture: no version pings. NOTE: the default local RAG
+    # embedding model (sentence-transformers) is still downloaded from Hugging
+    # Face ONCE on first start; that is the only expected egress.
+    - name: ENABLE_VERSION_UPDATE_CHECK
+      value: "false"
+    - name: ENABLE_COMMUNITY_SHARING
+      value: "false"
+    - name: ENABLE_WEB_SEARCH
+      value: "false"
+    # First account created becomes admin. New signups land as "pending" until
+    # the admin approves them; flip ENABLE_SIGNUP off in Admin once the family
+    # accounts exist.
+    - name: ENABLE_SIGNUP
+      value: "true"
+    - name: DEFAULT_USER_ROLE
+      value: "pending"
+    - name: WEBUI_NAME
+      value: "Homelab Chat"

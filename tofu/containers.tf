@@ -51,3 +51,61 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
     ]
   }
 }
+
+# JBVM04 — Satisfactory dedicated server / Debian 13 LXC (VMID 107)
+# Imported 2026-09-04: the last hand-made guest. The two raw lxc.* lines that
+# pass /dev/net/tun through for Tailscale (lxc.cgroup2.devices.allow c 10:200,
+# lxc.mount.entry /dev/net/tun) have no provider attribute and stay a manual
+# step in the rebuild procedure (docs/jbvm04.md in the private knowledge base).
+import {
+  to = proxmox_virtual_environment_container.jbvm04
+  id = "JBSRV01/107"
+}
+
+resource "proxmox_virtual_environment_container" "jbvm04" {
+  node_name   = "JBSRV01"
+  vm_id       = 107
+  description = "Satisfactory dedicated server (Tailscale-only)"
+
+  unprivileged = true
+
+  cpu {
+    cores = 4
+  }
+
+  memory {
+    dedicated = 12288
+    swap      = 2048
+  }
+
+  features {
+    nesting = true
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = 30
+  }
+
+  network_interface {
+    name   = "eth0"
+    bridge = "vmbr0"
+  }
+
+  # template_file_id is consumed at creation time only; ignore drift on import.
+  operating_system {
+    template_file_id = "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
+    type             = "debian"
+  }
+
+  start_on_boot = true
+  started       = true
+
+  lifecycle {
+    ignore_changes = [
+      operating_system, initialization, description, console,
+      start_on_boot, vm_id, tags,
+      timeout_clone, timeout_create, timeout_delete, timeout_start, timeout_update,
+    ]
+  }
+}

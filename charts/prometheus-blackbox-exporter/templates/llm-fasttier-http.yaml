@@ -1,0 +1,23 @@
+# Fast-tier LLM availability (JBPC004 spot node) — INFO-LEVEL SIGNAL ONLY.
+# "probe_success == 0" is a NORMAL state (desktop asleep / gaming mode); no
+# alert rule may ever page on this job. Probes the desktop DIRECTLY on its
+# DHCP-reserved wired address — NEVER via the llm-router on JBVM02:9081,
+# which would wake the sleeping desktop on every scrape.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: llm-fasttier-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-llm-fasttier
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.131:8080/health

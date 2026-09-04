@@ -337,3 +337,84 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
     ]
   }
 }
+
+# JBLLM01 — Big-tier LLM VM (VMID 108): gpt-oss-120b on CPU + 72 GB RAM.
+# ON-DEMAND posture: parked (stopped) when idle; started for sessions/benches.
+# First net-new VM born in Tofu (all others were imported). Disk lives on
+# local-lvm-m2 (SP P34A60 NVMe) for fast model loads. Design: docs/inference.md
+# in the private knowledge base; big tier gated on-demand per the toy-service rule.
+resource "proxmox_virtual_environment_vm" "jbllm01" {
+  node_name = "JBSRV01"
+  vm_id     = 108
+  name      = "JBLLM01"
+
+  machine       = "q35"
+  bios          = "seabios"
+  scsi_hardware = "virtio-scsi-pci"
+
+  clone {
+    vm_id        = 9000
+    full         = true
+    datastore_id = "local-lvm-m2"
+  }
+
+  # qemu-guest-agent installed 2026-09-04; safe to enable (plan-hang rule).
+  agent {
+    enabled = true
+  }
+
+  cpu {
+    cores = 12
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 73728
+  }
+
+  disk {
+    datastore_id = "local-lvm-m2"
+    interface    = "scsi0"
+    size         = 100
+    discard      = "on"
+    ssd          = true
+  }
+
+  network_device {
+    bridge   = "vmbr0"
+    model    = "virtio"
+    firewall = true
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  serial_device {}
+
+  initialization {
+    datastore_id = "local-lvm-m2"
+
+    ip_config {
+      ipv4 {
+        address = "192.168.0.208/24"
+        gateway = "192.168.0.1"
+      }
+    }
+
+    dns {
+      servers = ["192.168.0.205"]
+    }
+
+    user_account {
+      username = "jbannon"
+      keys     = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJlpd8F6RDP/YXHj2rRWAAF8f94gjowFOimxsGgrKuyt jbannon@jbvm02"]
+    }
+  }
+
+  # PARKED (on-demand posture): zero host RAM while stopped. Wake with
+  # `qm start 108` (~1 min boot + ~2 min model load); benches recorded
+  # 2026-09-04 in the private KB (inference.md): tg 3.8-4.0 t/s, pp512 18 t/s.
+  on_boot = false
+  started = false
+}

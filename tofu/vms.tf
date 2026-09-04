@@ -358,10 +358,9 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     datastore_id = "local-lvm-m2"
   }
 
-  # agent flips to true once qemu-guest-agent is installed post-provision;
-  # enabling it before install hangs every plan/refresh for minutes.
+  # qemu-guest-agent installed 2026-09-04; safe to enable (plan-hang rule).
   agent {
-    enabled = false
+    enabled = true
   }
 
   cpu {

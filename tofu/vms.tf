@@ -296,7 +296,7 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
   }
 
   memory {
-    dedicated = 8192
+    dedicated = 16384
   }
 
   # discard/ssd required for LVM-thin reclaim; see the note on jbvm01.

@@ -353,12 +353,16 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
   }
 }
 
-# JBLLM01 — Big-tier LLM VM (VMID 108): gpt-oss-120b on CPU + 72 GB RAM.
-# PARKED. The 2026-09-05 always-on experiment was ABORTED after 3 minutes: with
-# the model loaded the guest touched its full 72 GB (page cache fills the
-# allocation), the host hit 125/125 GiB with swap active. gpt-oss-120b does not
-# fit beside the current fleet (JBK8S01 at 16 GB); see the private KB plan doc.
-# DO NOT set started=true without re-checking host MemAvailable vs 72 GiB.
+# JBLLM01 — Server LLM tier (VMID 108): Qwen3.6-35B-A3B on CPU, 32 GB RAM,
+# ALWAYS-ON since 2026-09-05. Same weights as the desktop fast tier, so it is
+# the fallback when JBPC004 is asleep/in gaming mode, and the tool-calling
+# backend for the phone chat when the desktop is unavailable. ~6-8 t/s expected.
+# History: built 2026-09-04 as a 72 GB gpt-oss-120b VM; the always-on attempt
+# on 2026-09-05 hit host 125/125 GiB within 3 minutes (a guest touches its
+# WHOLE allocation once page cache fills). The 120B is retired on this host.
+# Capacity rule (private KB memory feedback_vm_memory_is_allocation_not_working_set):
+# host 125 - 3 (hypervisor) - 71 (other guests' allocations) - 32 = 19 GiB
+# worst-case spare. Re-run this sum before raising ANY guest's memory.
 # First net-new VM born in Tofu (all others were imported). Disk lives on
 # local-lvm-m2 (SP P34A60 NVMe) for fast model loads. Design: docs/inference.md
 # in the private knowledge base; big tier gated on-demand per the toy-service rule.
@@ -392,7 +396,7 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
   }
 
   memory {
-    dedicated = 73728
+    dedicated = 32768 # 22 GB Q4 weights + KV cache + guest; page cache fills the rest
   }
 
   disk {
@@ -439,9 +443,9 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     }
   }
 
-  # Parked: zero host RAM while stopped. Benches 2026-09-04 (private KB
-  # inference.md): tg 3.8-4.0 t/s, pp512 18 t/s. cpu.units and disk backup=false
-  # from the experiment are kept: both are right regardless of posture.
-  on_boot = false
-  started = false
+  # Always-on (see header). cpu.units=50 keeps generation bursts below the game
+  # servers under contention; disk backup=false because the weights are a
+  # hash-pinned re-download and the VM is a Tofu clone of template 9000.
+  on_boot = true
+  started = true
 }

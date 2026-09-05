@@ -339,7 +339,8 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
 }
 
 # JBLLM01 — Big-tier LLM VM (VMID 108): gpt-oss-120b on CPU + 72 GB RAM.
-# ON-DEMAND posture: parked (stopped) when idle; started for sessions/benches.
+# ALWAYS-ON EXPERIMENT 2026-09-05 -> 2026-09-19 (was: parked on-demand). Review
+# date in the private KB TODO; revert = started/on_boot back to false.
 # First net-new VM born in Tofu (all others were imported). Disk lives on
 # local-lvm-m2 (SP P34A60 NVMe) for fast model loads. Design: docs/inference.md
 # in the private knowledge base; big tier gated on-demand per the toy-service rule.
@@ -366,6 +367,10 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
   cpu {
     cores = 12
     type  = "host"
+    # CPU shares (cgroup v2 cpu.weight; Proxmox default 100). Half weight so a
+    # 12-thread generation burst yields to the game servers and k3s under
+    # contention instead of starving them. Not a cap: full speed when idle host.
+    units = 50
   }
 
   memory {
@@ -378,6 +383,10 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     size         = 100
     discard      = "on"
     ssd          = true
+    # Excluded from vzdump: ~63 GB of model weights are re-downloadable and the
+    # VM is a Tofu clone of template 9000. The weekly job still captures the
+    # VM config (backup=1 on no disks = config-only archive). Set 2026-09-05.
+    backup = false
   }
 
   network_device {
@@ -412,9 +421,9 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     }
   }
 
-  # PARKED (on-demand posture): zero host RAM while stopped. Wake with
-  # `qm start 108` (~1 min boot + ~2 min model load); benches recorded
-  # 2026-09-04 in the private KB (inference.md): tg 3.8-4.0 t/s, pp512 18 t/s.
-  on_boot = false
-  started = false
+  # Always-on for the two-week experiment (see header). Parked posture was
+  # on_boot=false/started=false: zero host RAM, ~3 min qm start to serving.
+  # Benches 2026-09-04 (private KB inference.md): tg 3.8-4.0 t/s, pp512 18 t/s.
+  on_boot = true
+  started = true
 }

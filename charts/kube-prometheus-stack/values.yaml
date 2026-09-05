@@ -647,6 +647,39 @@ kube-prometheus-stack:
                 impact: "{{ $labels.instance }} has a local disk saturated while moving little data — points to a slow/failing device timing out, or heavy swap paging. (Legitimate bulk I/O and network-FS/CIFS stalls are intentionally excluded.)"
                 action: "Rule out memory pressure first: `free -h` / `vmstat 1` (high si/so = swap thrash, not a device). On a NAS, rule out a benign bulk writer: `smbstatus --locks`. Then look for a slow device: `zpool status` (errors/resilver), `dmesg -T | grep -iE 'ata|reset|timeout|error'`, `zpool iostat -vl 1` (a single member with high disk_wait). The runbook has the drive-hang and benign-ingest discriminators."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-resource-pressure.md"
+            # Hypervisor-only exception to the "no MemAvailable alerts" rule above.
+            # On JBSRV01 the consumers are QEMU guests with dedicated memory and
+            # no ballooning, so the host cannot reclaim from them; when
+            # MemAvailable runs out the kernel OOM-kills a guest outright, often
+            # with little PSI warning (a VM touching 60+ GB of model weights in
+            # two minutes). Absolute headroom is the right signal here. Added
+            # 2026-09-05 for the JBLLM01 always-on experiment (72 GB VM on a
+            # 125 GiB host, ~4-5 GiB expected margin). Scoped to the hypervisor
+            # instance only.
+            - alert: HypervisorMemoryHeadroomLow
+              expr: node_memory_MemAvailable_bytes{instance="192.168.0.200"} < 3 * 1024^3
+              for: 10m
+              labels: {severity: warning, service: compute}
+              annotations:
+                summary: "JBSRV01 has {{ $value | humanize1024 }}B of memory available"
+                host: "JBSRV01 (192.168.0.200)"
+                value: "{{ $value | humanize1024 }}B MemAvailable"
+                threshold: "< 3 GiB available for 10m"
+                impact: "The hypervisor is close to out of memory. Guests have dedicated, non-reclaimable RAM; the next allocation can OOM-kill a VM."
+                action: "Check which guest grew (`qm list`, `free -g` on JBSRV01). If JBLLM01 (108) is running, `qm stop 108` frees ~65 GiB immediately. Then revisit allocations in tofu/vms.tf."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-resource-pressure.md"
+            - alert: HypervisorMemoryHeadroomCritical
+              expr: node_memory_MemAvailable_bytes{instance="192.168.0.200"} < 1 * 1024^3
+              for: 3m
+              labels: {severity: critical, service: compute}
+              annotations:
+                summary: "JBSRV01 has {{ $value | humanize1024 }}B of memory available — OOM imminent"
+                host: "JBSRV01 (192.168.0.200)"
+                value: "{{ $value | humanize1024 }}B MemAvailable"
+                threshold: "< 1 GiB available for 3m"
+                impact: "A guest OOM-kill on the hypervisor is imminent; family services can drop without further warning."
+                action: "`qm stop 108` on JBSRV01 now if JBLLM01 is running. Otherwise find the grower with `free -g` + `qm list` and stop the least critical guest."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/node-resource-pressure.md"
             - alert: Jbvm02MaintenanceStale
               expr: time() - maintenance_last_success_timestamp_seconds{name="jbvm02-maintenance"} > 691200
               for: 1h

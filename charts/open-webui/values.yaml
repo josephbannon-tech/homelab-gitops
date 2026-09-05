@@ -28,10 +28,20 @@ open-webui:
   # Every chat inherits WoL of the fast tier. Big-tier / -dm profiles appear in
   # the picker automatically when the router lists them.
   enableOpenaiApi: true
-  openaiBaseApiUrl: "http://192.168.0.203:9081/v1"
-  # Neither the router nor llama-server checks auth; this is a placeholder the
-  # OpenAI client insists on, not a secret.
-  openaiApiKey: "not-used"
+  # Two endpoints (chart joins them with ";" into OPENAI_API_BASE_URLS):
+  #   1. llm-router on JBVM02 -> desktop fast tier (Qwen profiles, wake-on-demand)
+  #   2. JBLLM01 direct -> big tier (gpt-oss-120b on CPU; always-on experiment
+  #      2026-09-05 -> 2026-09-19, ~4 t/s: batch-quality answers, not chat speed)
+  # Open WebUI polls both for /v1/models; an unreachable one is logged and
+  # skipped, the other keeps working. Remove entry 2 to end the experiment.
+  openaiBaseApiUrls:
+    - "http://192.168.0.203:9081/v1"
+    - "http://192.168.0.208:8080/v1"
+  # Neither the router nor llama-server checks auth; placeholders the OpenAI
+  # client insists on, not secrets. Must be one per URL, same order.
+  openaiApiKeys:
+    - "not-used"
+    - "not-used"
 
   # --- Storage: local-path PVC (Loki/Tempo pattern) ------------------------------
   # Holds the SQLite DB, uploads, and the RAG vector store. Backup: nightly

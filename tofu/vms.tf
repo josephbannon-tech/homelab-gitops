@@ -1,8 +1,12 @@
 # JBNAS01 — TrueNAS SCALE 25.04 (VMID 101)
 resource "proxmox_virtual_environment_vm" "jbnas01" {
-  node_name = "JBSRV01"
-  vm_id     = 101
-  name      = "JBNAS01"
+  node_name   = "JBSRV01"
+  vm_id       = 101
+  name        = "JBNAS01"
+  description = <<-EOT
+    ## JBNAS01 — TrueNAS
+    - 0.201 · web@:443 · ssh nas
+  EOT
 
   machine = "q35"
   bios    = "ovmf"
@@ -64,7 +68,7 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
   lifecycle {
     ignore_changes = [
       disk, efi_disk, operating_system, serial_device,
-      description, initialization,
+      initialization,
       agent, machine, keyboard_layout,
     ]
   }
@@ -72,9 +76,13 @@ resource "proxmox_virtual_environment_vm" "jbnas01" {
 
 # JBVM01 — Jump box / Debian 13 desktop (VMID 102)
 resource "proxmox_virtual_environment_vm" "jbvm01" {
-  node_name = "JBSRV01"
-  vm_id     = 102
-  name      = "JBVM01"
+  node_name   = "JBSRV01"
+  vm_id       = 102
+  name        = "JBVM01"
+  description = <<-EOT
+    ## JBVM01 — Jumpbox
+    - 0.206 · ssh claude@
+  EOT
 
   machine       = "q35"
   bios          = "seabios"
@@ -136,7 +144,7 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, serial_device, description, initialization,
+      operating_system, serial_device, initialization,
       agent, machine, keyboard_layout,
     ]
   }
@@ -144,9 +152,13 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
 
 # JBVM02 — Claude Code / Ubuntu 24.04 (VMID 103)
 resource "proxmox_virtual_environment_vm" "jbvm02" {
-  node_name = "JBSRV01"
-  vm_id     = 103
-  name      = "JBVM02"
+  node_name   = "JBSRV01"
+  vm_id       = 103
+  name        = "JBVM02"
+  description = <<-EOT
+    ## JBVM02 — LLM Admin
+    - 0.203 · code-server@:8080 · llm-router@:9081 · ssh jbannon@ · API token root@pam!claude → KB
+  EOT
 
   machine       = "q35"
   bios          = "seabios"
@@ -202,7 +214,7 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, serial_device, description, initialization,
+      operating_system, serial_device, initialization,
       agent, machine, keyboard_layout,
     ]
   }
@@ -210,9 +222,13 @@ resource "proxmox_virtual_environment_vm" "jbvm02" {
 
 # JBVM03 — Production server / Ubuntu 24.04 (VMID 104)
 resource "proxmox_virtual_environment_vm" "jbvm03" {
-  node_name = "JBSRV01"
-  vm_id     = 104
-  name      = "JBVM03"
+  node_name   = "JBSRV01"
+  vm_id       = 104
+  name        = "JBVM03"
+  description = <<-EOT
+    ## JBVM03 — Minecraft
+    - 0.204 · tailscale@:25565 · ssh jbvm03
+  EOT
 
   machine       = "q35"
   bios          = "seabios"
@@ -265,7 +281,7 @@ resource "proxmox_virtual_environment_vm" "jbvm03" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, serial_device, description, initialization,
+      operating_system, serial_device, initialization,
       agent, machine, keyboard_layout,
     ]
   }
@@ -278,9 +294,13 @@ import {
 }
 
 resource "proxmox_virtual_environment_vm" "jbk8s01" {
-  node_name = "JBSRV01"
-  vm_id     = 106
-  name      = "JBK8S01"
+  node_name   = "JBSRV01"
+  vm_id       = 106
+  name        = "JBK8S01"
+  description = <<-EOT
+    ## JBK8S01 — k3s
+    - 0.207 · Grafana@:30300 · Prometheus@:30900 · ArgoCD@:30808 · Open WebUI@:30081 · ssh jbk8s01
+  EOT
 
   machine       = "q35"
   bios          = "seabios"
@@ -347,7 +367,7 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, serial_device, description, initialization,
+      operating_system, serial_device, initialization,
       agent, machine, keyboard_layout,
     ]
   }
@@ -367,9 +387,13 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
 # local-lvm-m2 (SP P34A60 NVMe) for fast model loads. Design: docs/inference.md
 # in the private knowledge base; big tier gated on-demand per the toy-service rule.
 resource "proxmox_virtual_environment_vm" "jbllm01" {
-  node_name = "JBSRV01"
-  vm_id     = 108
-  name      = "JBLLM01"
+  node_name   = "JBSRV01"
+  vm_id       = 108
+  name        = "JBLLM01"
+  description = <<-EOT
+    ## JBLLM01 — Local LLM Resources
+    - 0.208 · llama-swap@:8080 · ssh jbannon@
+  EOT
 
   machine       = "q35"
   bios          = "seabios"

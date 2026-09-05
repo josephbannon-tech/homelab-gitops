@@ -2,7 +2,10 @@
 resource "proxmox_virtual_environment_container" "jbdns01" {
   node_name   = "JBSRV01"
   vm_id       = 105
-  description = "Pi-hole DNS + DHCP + Tailscale subnet router"
+  description = <<-EOT
+    ## JBDNS01 — DNS & DHCP
+    - 0.205 · admin@/admin · ssh root@ · pct enter 105
+  EOT
 
   unprivileged = true
 
@@ -45,7 +48,7 @@ resource "proxmox_virtual_environment_container" "jbdns01" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, initialization, description, console,
+      operating_system, initialization, console,
       start_on_boot, vm_id, tags,
       timeout_clone, timeout_create, timeout_delete, timeout_start, timeout_update,
     ]
@@ -65,7 +68,10 @@ import {
 resource "proxmox_virtual_environment_container" "jbvm04" {
   node_name   = "JBSRV01"
   vm_id       = 107
-  description = "Satisfactory dedicated server (Tailscale-only)"
+  description = <<-EOT
+    ## JBVM04 — Satisfactory
+    - 0.70 (DHCP) · tailscale@:7777+8888 · pct enter 107
+  EOT
 
   unprivileged = true
 
@@ -103,7 +109,7 @@ resource "proxmox_virtual_environment_container" "jbvm04" {
 
   lifecycle {
     ignore_changes = [
-      operating_system, initialization, description, console,
+      operating_system, initialization, console,
       start_on_boot, vm_id, tags,
       timeout_clone, timeout_create, timeout_delete, timeout_start, timeout_update,
     ]

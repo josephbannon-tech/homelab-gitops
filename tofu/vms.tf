@@ -339,8 +339,11 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
 }
 
 # JBLLM01 — Big-tier LLM VM (VMID 108): gpt-oss-120b on CPU + 72 GB RAM.
-# ALWAYS-ON EXPERIMENT 2026-09-05 -> 2026-09-19 (was: parked on-demand). Review
-# date in the private KB TODO; revert = started/on_boot back to false.
+# PARKED. The 2026-09-05 always-on experiment was ABORTED after 3 minutes: with
+# the model loaded the guest touched its full 72 GB (page cache fills the
+# allocation), the host hit 125/125 GiB with swap active. gpt-oss-120b does not
+# fit beside the current fleet (JBK8S01 at 16 GB); see the private KB plan doc.
+# DO NOT set started=true without re-checking host MemAvailable vs 72 GiB.
 # First net-new VM born in Tofu (all others were imported). Disk lives on
 # local-lvm-m2 (SP P34A60 NVMe) for fast model loads. Design: docs/inference.md
 # in the private knowledge base; big tier gated on-demand per the toy-service rule.
@@ -421,9 +424,9 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
     }
   }
 
-  # Always-on for the two-week experiment (see header). Parked posture was
-  # on_boot=false/started=false: zero host RAM, ~3 min qm start to serving.
-  # Benches 2026-09-04 (private KB inference.md): tg 3.8-4.0 t/s, pp512 18 t/s.
-  on_boot = true
-  started = true
+  # Parked: zero host RAM while stopped. Benches 2026-09-04 (private KB
+  # inference.md): tg 3.8-4.0 t/s, pp512 18 t/s. cpu.units and disk backup=false
+  # from the experiment are kept: both are right regardless of posture.
+  on_boot = false
+  started = false
 }

@@ -309,6 +309,21 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
     ssd          = true
   }
 
+  # PV data disk (added 2026-09-05): mounted in-guest at
+  # /var/lib/rancher/k3s/storage, the local-path provisioner's root. Moves all
+  # PersistentVolumes off the 40 G OS disk (root hit 84% with the Prometheus
+  # TSDB at 11 G and growing) onto the P34A60 NVMe pool (838 G, ~7% used),
+  # which was earmarked for PV-class data ahead of Immich. Hot-plugged; the
+  # in-guest move is a short full-cluster stop (runbook in the private KB:
+  # scripts/jbk8s01-move-pv-disk.sh, docs/jbk8s01.md).
+  disk {
+    datastore_id = "local-lvm-m2"
+    interface    = "scsi1"
+    size         = 100
+    discard      = "on"
+    ssd          = true
+  }
+
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"

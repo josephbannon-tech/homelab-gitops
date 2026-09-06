@@ -1,0 +1,24 @@
+# Server-tier LLM availability (JBLLM01, always-on 32 GB CPU tier) — INFO-LEVEL
+# SIGNAL ONLY for now. Unlike the fast tier this node is resident 24/7, so a
+# sustained probe_success == 0 is a real outage; an alert rule can be layered on
+# once a week of baseline is in hand. Probes llama-swap's /health directly on
+# the guest, never via the llm-router on JBVM02:9081 (which would attribute
+# router faults to the server, and can wake the desktop as a side effect).
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: llm-servertier-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-llm-servertier
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.208:8080/health

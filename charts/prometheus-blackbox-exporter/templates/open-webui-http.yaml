@@ -1,0 +1,23 @@
+# Open WebUI availability — the user-facing chat front end. INFO-LEVEL SIGNAL
+# for now (no alert rule); promoted to an SLO once family accounts exist.
+# Probes the NodePort on the node's LAN address, i.e. the exact path a phone or
+# laptop on the LAN/Tailscale takes, rather than the in-cluster Service. That
+# way kube-proxy / NodePort breakage shows up here, not just pod health.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: open-webui-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-open-webui
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.207:30081/health

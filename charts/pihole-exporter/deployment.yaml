@@ -53,20 +53,33 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          # Liveness re-checks /metrics over HTTP. The earlier TCP-only probe
-          # (chosen 2026-05-10 to avoid restarting on slow-upstream blips) could
-          # not detect the actual failure mode: on 2026-06-01 the exporter's
-          # /metrics handler wedged against Pi-hole v6's session API and blocked
-          # for >=10s on every request for 45 min, while the TCP port stayed
-          # open — so TCP liveness passed and kubelet never recovered it (manual
-          # pod delete was required). The httpGet readiness probe below did not
-          # catch it either: the wedged body completes right around 10s, so a
-          # 10s-timeout probe squeaks under while Prometheus's 10s scrape tips
-          # over. This liveness uses a tighter 5s timeout so the slow-body wedge
-          # trips it, and failureThreshold 6 (~3 min of continuous failure)
-          # preserves the 2026-05-10 intent: a transient upstream blip (1-2
-          # scrapes) will not restart a healthy process (a healthy scrape is
-          # ~0.25s). v1.2.0 is the latest release, so there is no version fix.
+          # Liveness is the ONLY recovery path for the exporter's wedge, and it
+          # must be the only probe. Root cause (traced 2026-09-07 with strace +
+          # tcpdump in the pod netns, after a 27 h wedge with zero restarts):
+          # the v1.2.0 /metrics handler (internal/server/server.go) collects
+          # with a 10 s context, and on timeout spawns `go func(){ <-c.Status }`
+          # to discard the late result but then STILL blocks on the same shared
+          # capacity-1 `client.Status` channel. Once any single collection
+          # exceeds 10 s, that discard goroutine races every later request for
+          # every later result, so each /metrics call returns only when the
+          # *next* caller's collection completes. Pi-hole is innocent (all 7
+          # API calls finish in ~0.2 s). The chain is self-sustaining for as
+          # long as anyone keeps calling /metrics.
+          #
+          # Consequences for probe design: (1) the earlier httpGet liveness with
+          # failureThreshold 6 never fired, because with three callers
+          # (Prometheus + liveness + readiness) whichever waiter is on the
+          # channel when a result lands wins, so some probe always got a fast
+          # answer and six consecutive failures never happened; (2) the built-in
+          # /liveness and /readiness routes always return 200 and are useless;
+          # (3) a readiness probe adds a caller that feeds the chain and gates
+          # nothing (Prometheus scrapes the pod IP via Endpoints, no traffic
+          # routes through the Service), so it is removed. With only two
+          # callers left, a wedged pod answers the probe ~30 s late, the 5 s
+          # timeout fails twice in a row and kubelet restarts it within ~60 s.
+          # Cost: a genuine Pi-hole API stall >5 s on two consecutive probes
+          # also restarts the exporter, which is harmless (exporter-only blast
+          # radius). Healthy scrape is ~0.25 s.
           livenessProbe:
             httpGet:
               path: /metrics
@@ -74,15 +87,7 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
-            failureThreshold: 6
-          readinessProbe:
-            httpGet:
-              path: /metrics
-              port: metrics
-            initialDelaySeconds: 10
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 3
+            failureThreshold: 2
           volumeMounts:
             - name: tmp
               mountPath: /tmp

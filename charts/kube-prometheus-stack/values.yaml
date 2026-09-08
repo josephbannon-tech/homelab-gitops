@@ -727,6 +727,55 @@ kube-prometheus-stack:
                 action: "On JBSRV01: check the latest `/var/log/vzdump/*.log` for the matching VMID, the `script` line in `/etc/pve/jobs.cfg`, and `mountpoint /mnt/nas-backups`."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/backup-heartbeat-stale.md"
 
+    # Media-integrity scan liveness. Incident 2026-09-08: a decode-scan Job was
+    # OOM-killed within a minute, the NAS wrapper kept waiting on it for 7 h
+    # under the pipeline's flock, and nothing alerted because a 4K scan
+    # legitimately runs for hours, so "still scanning" was indistinguishable
+    # from "stuck". The pipeline now exports a scan-progress gauge pair from the
+    # NAS textfile collector (media_pipeline_scan_in_progress and the scan's
+    # start epoch), and kube-state-metrics sees the Job itself. Two rules:
+    #   1. the scan has run longer than any legitimate decode (a 3-pass 4K remux
+    #      stays under 6 h; the Job's own deadline is 12 h);
+    #   2. the NAS says it is scanning but the cluster has no live media-scan
+    #      Job at all, which is exactly the shape of the incident and fires in
+    #      minutes, not hours.
+    media-scan-liveness:
+      groups:
+        - name: media.scan.alerts
+          rules:
+            - alert: MediaScanRunningTooLong
+              expr: |
+                media_pipeline_scan_in_progress == 1
+                  and (time() - media_pipeline_scan_start_timestamp_seconds) > 21600
+              for: 5m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "media decode scan has been running for {{ $value | humanizeDuration }}"
+                host: "JBNAS01 (192.168.0.201) -> scan Job on JBK8S01"
+                value: "current scan started {{ $value | humanizeDuration }} ago"
+                threshold: "a single scan older than 6h (a 3-pass 4K remux decode finishes well inside that; the Job's own activeDeadlineSeconds is 12h)"
+                impact: "The ingest pipeline is serialised under a lock; while this scan runs nothing else in either inbox reaches Plex."
+                action: "On JBNAS01: `pgrep -af media-scan.sh` and `journalctl -t media-scan -t media-pipeline`. On JBK8S01: `kubectl -n monitoring get jobs,pods | grep media-scan` and the pod logs. A pod at full CPU with a growing log is a slow decode; a missing pod means the wrapper is waiting on nothing (see MediaScanWithoutJob)."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/media-scan-stuck.md"
+            - alert: MediaScanWithoutJob
+              expr: |
+                (
+                  media_pipeline_scan_in_progress == 1
+                    and (time() - media_pipeline_scan_start_timestamp_seconds) > 300
+                )
+                unless on()
+                  (count(kube_job_status_active{namespace="monitoring", job_name=~"media-scan-.*"} > 0) > 0)
+              for: 10m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "NAS pipeline reports a scan in progress but no media-scan Job is active on the cluster"
+                host: "JBNAS01 (192.168.0.201) -> JBK8S01 (192.168.0.207)"
+                value: "scan flagged in progress for {{ $value | humanizeDuration }} with no active Job"
+                threshold: "in-progress gauge set >5m with zero active media-scan Jobs, sustained 10m"
+                impact: "The scan wrapper is blocked on a Job that has failed or been reaped. Ingest is stalled for every inbox item until the wrapper returns."
+                action: "On JBNAS01: `journalctl -t media-scan` for the last verdict; if the wrapper process is older than the newest Job, `kill` the `kubectl` child and let the pipeline log ERROR and move on. Then find why the Job died: `kubectl -n monitoring describe job <name>` or Loki `{namespace=\"monitoring\", pod=~\"media-scan-.*\"}`; OOMKilled means the file has a stream the scanner should not decode."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/media-scan-stuck.md"
+
     # Media-integrity corruption reports. The verify-gated ingest pipeline
     # (nas-media-pipeline.sh on JBNAS01) writes one report file per confirmed
     # corrupt download to /srv/media-corrupt-reports on JBVM01, and exports the

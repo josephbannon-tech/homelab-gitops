@@ -121,6 +121,26 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     iothread     = true
   }
 
+  # Torrent staging tier: qBittorrent's *incomplete* directory. Torrent writes
+  # are 16 KB random pieces; landing them straight on the NAS RAIDZ over CIFS
+  # fragments every file for the life of the pool (OpenZFS tuning guide,
+  # BitTorrent section). Incomplete downloads live here on NVMe instead, and
+  # qBittorrent moves the finished content to the CIFS dropbox in one
+  # sequential copy. Sized for one 4K remux (largest in the library is 141 GB)
+  # plus a season pack. On the chipset NVMe (`local-lvm-m2`), never the boot
+  # drive: sustained torrent churn is not for an unmirrored OS disk. Contents
+  # are in-flight downloads, re-acquirable by definition, so backup = false.
+  # discard/ssd are load-bearing on LVM-thin, see scsi0 above.
+  disk {
+    datastore_id = "local-lvm-m2"
+    interface    = "scsi1"
+    size         = 200
+    discard      = "on"
+    ssd          = true
+    iothread     = true
+    backup       = false
+  }
+
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"

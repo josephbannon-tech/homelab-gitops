@@ -360,41 +360,31 @@ kube-prometheus-stack:
                 action: "Investigate JBVM03 logs and ServerStarter restart behaviour."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/minecraft-burn.md"
 
-            # SLI is `up{job="pihole"}`, i.e. pihole-exporter scrape success.
-            # That measures *exporter* availability, NOT user-facing DNS
-            # reachability. The exporter and pihole-FTL :53 are independent
-            # paths; the household can resolve DNS perfectly while these
-            # alerts fire. Wording reflects that.
-            #
-            # The real user-DNS SLI (blackbox dns_pihole probe on UDP/53) now
-            # exists as `PiholeDnsBurnFast` in the `pihole-dns-real-sli` rules
-            # block below; these warning alerts remain as a secondary signal
-            # on the exporter→admin-API path.
-            - alert: PiholeErrorBudgetBurnFast
-              expr: slo:pihole:burn_rate:1h > 14.4 and slo:pihole:burn_rate:5m > 14.4
-              for: 2m
-              labels: {severity: warning, service: pihole}
-              annotations:
-                summary: "pihole-exporter scrape failing fast (exporter SLI, not user-facing DNS)"
-                host: "JBDNS01 (192.168.0.205)"
-                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
-                threshold: "fast burn >14.4x, sustained 2m"
-                impact: "The pihole-exporter to admin-API path is failing. This is NOT the LAN DNS path — household DNS may be perfectly fine."
-                action: "Verify real DNS first: `dig @192.168.0.205 +short google.com`. Then check the pihole-exporter pod and the pihole-FTL admin API (port 80) on the LXC."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-exporter-burn.md"
-            - alert: PiholeErrorBudgetBurnSlow
-              expr: slo:pihole:burn_rate:6h > 6 and slo:pihole:burn_rate:30m > 6
+            # `up{job="pihole"}` measures pihole-exporter scrape success, NOT
+            # user-facing DNS (that is `PiholeDnsBurnFast` on the blackbox
+            # probe, below). The two burn-rate alerts that used to live here
+            # (PiholeErrorBudgetBurnFast/Slow) were retired 2026-09-07: a
+            # 99.9 % SLO on an exporter means a single self-healing liveness
+            # restart (2 lost scrapes in an hour = 16.7x) paged a warning, and
+            # the exporter's real failure mode is a handler bug that wedges it
+            # (see charts/pihole-exporter/deployment.yaml), which the liveness
+            # probe now recovers in ~60 s. The recording rules stay for the
+            # dashboard. What remains is one actionable alert: the exporter has
+            # been down or at the scrape-timeout ceiling for long enough that
+            # the liveness probe has evidently NOT recovered it, so the probe
+            # design is broken again and a human must delete the pod.
+            - alert: PiholeExporterWedged
+              expr: (up{job="pihole"} == 0 or scrape_duration_seconds{job="pihole"} >= 9.9)
               for: 15m
               labels: {severity: warning, service: pihole}
               annotations:
-                summary: "pihole-exporter scrape failing slowly (exporter SLI, not user-facing DNS)"
+                summary: "pihole-exporter down or wedged for 15m and liveness has not recovered it (exporter only, not user-facing DNS)"
                 host: "JBDNS01 (192.168.0.205)"
-                value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
-                threshold: "slow burn >6x, sustained 15m"
-                impact: "pihole-exporter scrape success has degraded over 6h. Not the LAN DNS path — verify before escalating."
-                action: "Check `dig @192.168.0.205 +short google.com` first; if that works, investigate exporter pod restarts or admin-API slowness."
+                value: "{{ $value | printf \"%.1f\" }} (0 = target down; otherwise scrape seconds, pinned at the 10s ceiling)"
+                threshold: "up==0 or scrape at the 10s ceiling, sustained 15m (liveness should restart it within ~60s)"
+                impact: "Only pihole_* metrics are missing. Household DNS is unaffected unless PiholeDnsBurnFast is also firing."
+                action: "Confirm real DNS: `dig @192.168.0.205 +short google.com`. Then `kubectl -n monitoring delete pod -l app=pihole-exporter` and check why the liveness probe did not fire (kubectl describe pod: probe timeouts/threshold)."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-exporter-burn.md"
-
             - alert: NasErrorBudgetBurnFast
               expr: slo:nas:burn_rate:1h > 14.4 and slo:nas:burn_rate:5m > 14.4
               for: 2m
@@ -819,8 +809,8 @@ kube-prometheus-stack:
     # Real user-facing Pi-hole DNS SLI via blackbox-exporter (charts/
     # prometheus-blackbox-exporter). SLI is probe_success{job="blackbox-dns-pihole"},
     # which is an actual UDP/53 DNS lookup against 192.168.0.205, distinct
-    # from the exporter-scrape SLI `up{job="pihole"}` (kept for the slow-burn
-    # warning above). Closes the TODO at the PiholeErrorBudgetBurn comment.
+    # from the exporter-scrape signal `up{job="pihole"}` (now only backs the
+    # PiholeExporterWedged warning above).
     pihole-dns-real-sli:
       groups:
         - name: pihole-dns.slo.recording
@@ -841,8 +831,8 @@ kube-prometheus-stack:
         - name: pihole-dns.slo.alerts
           rules:
             # Critical: this is the household-impacting signal. Unlike the
-            # exporter-based PiholeErrorBudgetBurnFast (warning), failure
-            # here means real DNS is broken for every device on the LAN.
+            # exporter-only PiholeExporterWedged (warning), failure here means
+            # real DNS is broken for every device on the LAN.
             - alert: PiholeDnsBurnFast
               expr: slo:pihole_dns:burn_rate:1h > 14.4 and slo:pihole_dns:burn_rate:5m > 14.4
               for: 2m

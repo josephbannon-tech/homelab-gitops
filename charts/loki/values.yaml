@@ -20,7 +20,18 @@ loki:
       retention_enabled: true
       delete_request_store: filesystem
     limits_config:
-      retention_period: 168h   # 7 days
+      # 90 days (was 7d from 2026-05 to 2026-09-08). Sized from measured
+      # usage, not guessed: ingest is ~520-570 MiB/day raw across all 7
+      # hosts, which lands on disk at ~55 MiB/day after chunk compression
+      # (7d = 375 MiB measured). 90d is therefore ~5 GiB against 85 GiB
+      # free on the JBK8S01 data disk. Why 90 and not 30 (the Prometheus
+      # retention): incidents here run for weeks (the DOCSIS complaint, the
+      # NAS crash pattern) and a postmortem needs the logs from the *first*
+      # occurrence, which is usually the one nobody looked at. The chart's
+      # `persistence.size` below is nominal: local-path does not enforce or
+      # expand it, the PV is a directory on the data disk, and the
+      # NodeFilesystemLow/Critical alerts watch that disk.
+      retention_period: 2160h
 
   singleBinary:
     replicas: 1

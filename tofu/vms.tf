@@ -98,7 +98,7 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
   }
 
   # Raised 2048 -> 4096 on 2026-06-02 after NodeIOThrottled fired (PSI io full
-  # ~54%): not a disk fault but swap thrash, with qBittorrent plus a full XFCE
+  # ~54%): not a disk fault but swap thrash, with the download client plus a full XFCE
   # desktop overrunning the 2 GB box. Do not lower without re-testing that.
   # balloon stays 0 and there is no memory hotplug, so changes need a stop/start.
   memory {
@@ -121,15 +121,16 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
     iothread     = true
   }
 
-  # Torrent staging tier: qBittorrent's *incomplete* directory. Torrent writes
-  # are 16 KB random pieces; landing them straight on the NAS RAIDZ over CIFS
-  # fragments every file for the life of the pool (OpenZFS tuning guide,
-  # BitTorrent section). Incomplete downloads live here on NVMe instead, and
-  # qBittorrent moves the finished content to the CIFS dropbox in one
-  # sequential copy. Sized for one 4K remux (largest in the library is 141 GB)
-  # plus a season pack. On the chipset NVMe (`local-lvm-m2`), never the boot
-  # drive: sustained torrent churn is not for an unmirrored OS disk. Contents
-  # are in-flight downloads, re-acquirable by definition, so backup = false.
+  # Download staging tier: the media download client's *incomplete* directory.
+  # The client writes in small random pieces; landing those straight on the NAS
+  # RAIDZ over CIFS fragments every file for the life of the pool (OpenZFS
+  # tuning guidance for small-random-write download workloads). Incomplete
+  # downloads live here on NVMe instead, and the client moves the finished
+  # content to the CIFS dropbox in one sequential copy. Sized for one 4K remux
+  # (largest in the library is 141 GB) plus a season pack. On the chipset NVMe
+  # (`local-lvm-m2`), never the boot drive: sustained download churn is not for
+  # an unmirrored OS disk. Contents are in-flight downloads, re-acquirable by
+  # definition, so backup = false.
   # discard/ssd are load-bearing on LVM-thin, see scsi0 above.
   disk {
     datastore_id = "local-lvm-m2"

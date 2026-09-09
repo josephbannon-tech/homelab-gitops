@@ -1,7 +1,7 @@
-# Server-tier LLM availability (JBLLM01, always-on 32 GB CPU tier) — INFO-LEVEL
-# SIGNAL ONLY for now. Unlike the fast tier this node is resident 24/7, so a
-# sustained probe_success == 0 is a real outage; an alert rule can be layered on
-# once a week of baseline is in hand. Probes llama-swap's /health directly on
+# Server-tier LLM availability (JBLLM01, always-on 32 GB CPU tier). Unlike the
+# fast tier this node is resident 24/7, so a sustained probe_success == 0 is a
+# real outage. Baselined 2026-09-06..09 at 1.0; the LlmServerTierDown warning
+# (kube-prometheus-stack values.yaml, llm-server-tier group) fires after 10m. Probes llama-swap's /health directly on
 # the guest, never via the llm-router on JBVM02:9081 (which would attribute
 # router faults to the server, and can wake the desktop as a side effect).
 apiVersion: monitoring.coreos.com/v1

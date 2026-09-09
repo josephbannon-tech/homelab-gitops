@@ -1,0 +1,30 @@
+# Probe CRD: WAN reachability by ICMP echo to two anycast resolvers (Cloudflare
+# 1.1.1.1, Quad9 9.9.9.9). Produces probe_success{job="blackbox-wan-icmp"}.
+#
+# Why this exists (2026-09-09): the estate had no external-reachability signal.
+# The Pi-hole DNS probe answers from cache during a WAN outage, and every
+# DOCSIS incident (2026-05-28, 2026-07-22, 2026-08-14) was found by a human, not
+# a monitor. Two independent targets so a single upstream's own outage does not
+# read as "WAN down"; alert (later, after a baseline) on BOTH failing.
+# INFO-ONLY until a week of baseline is in hand; no alert rule references it yet.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: wan-icmp
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-wan-icmp
+  interval: 30s
+  module: icmp
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - 1.1.1.1
+        - 9.9.9.9
+      labels:
+        role: wan

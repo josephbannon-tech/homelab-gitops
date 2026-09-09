@@ -1,0 +1,32 @@
+# Probe CRD: the recursive-DNS path from the cluster straight to Pi-hole's two
+# upstreams (1.1.1.1 and 9.9.9.9), bypassing Pi-hole and its cache. Produces
+# probe_success{job="blackbox-dns-upstream"}.
+#
+# Read together with the pihole-dns probe:
+#   pihole 1, upstream 1  -> healthy
+#   pihole 1, upstream 0  -> WAN or upstream fault; Pi-hole is serving from
+#                            cache and will start failing as TTLs expire
+#                            (exactly the 2026-05-28 / 2026-07-22 pattern)
+#   pihole 0, upstream 1  -> Pi-hole itself is the problem
+# INFO-ONLY until baselined; no alert rule references it yet.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: dns-upstream
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-dns-upstream
+  interval: 30s
+  module: dns_upstream
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - 1.1.1.1:53
+        - 9.9.9.9:53
+      labels:
+        role: dns-upstream

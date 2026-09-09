@@ -603,7 +603,7 @@ kube-prometheus-stack:
             #      network-FS waits (CIFS/NFS), but the throughput term only sees
             #      local block devices, so a host stalling on a CIFS mount shows
             #      high PSI + ~0 local throughput and false-fires. Added
-            #      2026-06-02 after JBVM01 paged 2x while qBittorrent did heavy
+            #      2026-06-02 after JBVM01 paged 2x while the download client did heavy
             #      I/O against its /mnt/nas-media CIFS share: PSI 20%, local
             #      throughput ~4 MB/s, but local io_time only 0.03 (disk idle).
             #      A genuinely slow/failing device is the opposite — saturated
@@ -748,7 +748,7 @@ kube-prometheus-stack:
                 host: "JBVM01 (192.168.0.206)"
                 value: "{{ $value }} unresolved corruption report(s)"
                 threshold: "any confirmed-corrupt download (2-pass decode scan) holds the alert open"
-                impact: "One or more downloads failed decode verification and were NOT added to Plex (torrent stopped + files deleted). The media is missing from the library until re-acquired from a different source."
+                impact: "One or more downloads failed decode verification and were NOT added to Plex (download stopped + files deleted). The media is missing from the library until re-acquired from a different source."
                 action: "On JBVM01, read /srv/media-corrupt-reports/corrupt-*.txt for the download name + release group, re-acquire from a DIFFERENT source, then delete the report file(s) to clear this alert."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/media-corruption-detected.md"
 
@@ -772,7 +772,7 @@ kube-prometheus-stack:
                 summary: "JBVM01 NAS dropbox /mnt/nas-media has no live CIFS mount"
                 host: "JBVM01 (192.168.0.206)"
                 threshold: "node_exporter up but no cifs filesystem series for the mountpoint, sustained 15m"
-                impact: "If the automount unit is gone the path is a plain directory and qBittorrent downloads silently land on JBVM01's 50 GB root disk while looking fine. If only the CIFS mount is failing (NAS down / share broken), writes fail loudly instead - still a pipeline outage."
+                impact: "If the automount unit is gone the path is a plain directory and the download client silently writes on JBVM01's 50 GB root disk while looking fine. If only the CIFS mount is failing (NAS down / share broken), writes fail loudly instead - still a pipeline outage."
                 action: "On JBVM01: `findmnt -o FSTYPE,SOURCE,TARGET /mnt/nas-media` - healthy shows an autofs trigger AND a cifs mount. Trigger with a WRITE probe (touch + rm under _inbox/movies/), never `ls` (write-only ACL denies listing by design). If the automount unit is missing, restore fstab + `systemctl start 'mnt-nas\\x2dmedia.automount'`, then audit for files that landed locally."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm01-nas-dropbox-mount.md"
             - alert: NasDropboxMountUnhealthy
@@ -783,8 +783,8 @@ kube-prometheus-stack:
                 summary: "JBVM01 NAS dropbox mount is erroring (statfs failing)"
                 host: "JBVM01 (192.168.0.206)"
                 threshold: "node_filesystem_device_error == 1 for the cifs mount, sustained 10m"
-                impact: "The dropbox mount exists but operations on it are failing - the fingerprint of a wedged SMB client session. qBittorrent writes and the media-integrity pipeline stall until the session is bounced."
-                action: "Confirm the NAS answers SMB from another host first. If the NAS is fine, remount on the CLIENT: stop qBittorrent, `umount /mnt/nas-media`, re-trigger with a write probe, restart qBittorrent."
+                impact: "The dropbox mount exists but operations on it are failing - the fingerprint of a wedged SMB client session. the download client and the media-integrity pipeline stall until the session is bounced."
+                action: "Confirm the NAS answers SMB from another host first. If the NAS is fine, remount on the CLIENT: stop the download client, `umount /mnt/nas-media`, re-trigger with a write probe, restart it."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm01-nas-dropbox-mount.md"
 
     # ZFS pool health. Excludes boot-pool which is a SOLARIS-style mirror that

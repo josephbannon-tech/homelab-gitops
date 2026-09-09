@@ -1,0 +1,25 @@
+# Probe CRD: WAN reachability at L7 (TLS + HTTP) to Google's connectivity
+# check endpoint, which returns an empty 204. Complements wan-icmp: ICMP up
+# but HTTP down = the hub is passing pings but not TCP/TLS (the DOCSIS "partial
+# service" fingerprint from 2026-07-22). Produces
+# probe_success{job="blackbox-wan-http"}. INFO-ONLY until baselined.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: wan-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-wan-http
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - https://connectivitycheck.gstatic.com/generate_204
+      labels:
+        role: wan

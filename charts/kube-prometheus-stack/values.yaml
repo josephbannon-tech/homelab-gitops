@@ -1045,6 +1045,27 @@ kube-prometheus-stack:
     # charts/loki/values.yaml and charts/promtail/values.yaml. Without these
     # alerts a silent log-ingestion failure would leave dashboards quietly
     # blank.
+    # JBLLM01 (VM 108) is the always-on CPU LLM server tier: the fallback for
+    # the desktop fast tier and the tool-calling backend for the phone chat.
+    # Its blackbox /health probe was info-only from 2026-09-06 while a baseline
+    # accrued (1.0 throughout); promoted to a warning 2026-09-09. The fast tier
+    # (JBPC004) stays info-only by design: "the desktop is off" is normal.
+    llm-server-tier:
+      groups:
+        - name: llm.server.alerts
+          rules:
+            - alert: LlmServerTierDown
+              expr: probe_success{job="blackbox-llm-servertier"} == 0
+              for: 10m
+              labels: {severity: warning, service: llm}
+              annotations:
+                summary: "LLM server tier unreachable (blackbox probe to 192.168.0.208:8080/health)"
+                host: "JBLLM01 (192.168.0.208)"
+                threshold: "probe_success == 0 for 10m (probe every 60s)"
+                impact: "Open WebUI's fallback model and the phone chat's tool backend are down when the desktop is asleep or in gaming mode. Nothing family-facing depends on it."
+                action: "`curl http://192.168.0.208:8080/health` from JBVM02; `ssh jbannon@192.168.0.208 'systemctl status llama-swap'`; `qm status 108` on JBSRV01. Host doc: docs/jbllm01.md."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+
     logging-stack-health:
       groups:
         - name: logging.alerts

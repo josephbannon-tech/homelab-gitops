@@ -97,6 +97,10 @@ kube-prometheus-stack:
               labels: {hostname: JBDNS01, role: dns}
             - targets: ['192.168.0.200:9100']
               labels: {hostname: JBSRV01, role: hypervisor}
+            # JBVM04 (LXC 107, Satisfactory). node_exporter + Promtail installed
+            # 2026-09-09; until then the only signal was its save-backup heartbeat.
+            - targets: ['192.168.0.70:9100']
+              labels: {hostname: JBVM04, role: game}
           relabel_configs:
             - source_labels: [__address__]
               regex: '([^:]+):.*'

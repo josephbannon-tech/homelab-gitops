@@ -104,6 +104,14 @@ resource "proxmox_virtual_environment_container" "jbvm04" {
     type             = "debian"
   }
 
+  # Boot order 3 with the other consumers (after JBDNS01 order 1 and JBNAS01
+  # order 2): the save-backup cron needs the NAS mount and every player joins by
+  # name via Pi-hole. Was undeclared until 2026-09-09 (docs audit), so a host
+  # reboot started it whenever Proxmox got round to it.
+  startup {
+    order = 3
+  }
+
   start_on_boot = true
   started       = true
 

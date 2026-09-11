@@ -491,6 +491,14 @@ resource "proxmox_virtual_environment_vm" "jbllm01" {
   # Always-on (see header). cpu.units=50 keeps generation bursts below the game
   # servers under contention; disk backup=false because the weights are a
   # hash-pinned re-download and the VM is a Tofu clone of template 9000.
+  # Boot order 4, deliberately LAST: this guest claims its whole 32 GB
+  # allocation within minutes of the first request (page cache fills it, see
+  # docs/jbllm01.md), and it serves nothing family-facing. Everything else
+  # should have its memory before this one starts. Undeclared until 2026-09-09.
+  startup {
+    order = 4
+  }
+
   on_boot = true
   started = true
 }

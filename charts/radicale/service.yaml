@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: radicale
+  namespace: pim
+  labels:
+    app: radicale
+spec:
+  # NodePort on the LAN, tailnet via the subnet router. Never public. DAVx5
+  # base URL = http://<node>:<nodePort>/. TODO(fill): NodePort choice, or a
+  # tailscale-operator Service if that lands first (see README).
+  type: NodePort
+  selector:
+    app: radicale
+  ports:
+    - name: http
+      port: 5232
+      targetPort: 5232
+      nodePort: 30232

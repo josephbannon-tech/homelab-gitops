@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: navidrome
+  namespace: navidrome
+  labels:
+    app: navidrome
+spec:
+  replicas: 1
+  # SQLite on a RWO PVC: never two writers. Recreate avoids a second pod
+  # briefly attaching the same volume during a rollout (tautulli pattern).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: navidrome
+  template:
+    metadata:
+      labels:
+        app: navidrome
+    spec:
+      # The official image runs as whatever uid it is given (no s6, no chown
+      # dance), so it can run fully non-root. 1000 matches the local-path PVC
+      # fsGroup; the NFS export is read-only and mapall'd to nasuser anyway.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: navidrome
+          # TODO(fill): pin by digest. 0.64.0 is current as of 2026-09-12.
+          image: ghcr.io/navidrome/navidrome:0.64.0
+          env:
+            - name: TZ
+              value: "Europe/London"
+            - name: ND_MUSICFOLDER
+              value: /music
+            - name: ND_DATAFOLDER
+              value: /data
+            - name: ND_CACHEFOLDER
+              value: /data/cache
+            # Watcher does not work over NFS and the internal cron cannot check
+            # the mount first. Both off; scan-cronjob.yaml drives scans.
+            - name: ND_SCANSCHEDULE
+              value: "0"
+            - name: ND_SCANNER_WATCHERWAIT
+              value: "0"
+            # Bound the caches so the 5Gi PVC cannot fill silently.
+            - name: ND_IMAGECACHESIZE
+              value: "500MB"
+            - name: ND_TRANSCODINGCACHESIZE
+              value: "1GB"
+            # Subsonic clients on the LAN/tailnet, plain HTTP behind Tailscale.
+            - name: ND_BASEURL
+              value: ""
+            - name: ND_PROMETHEUS_ENABLED
+              value: "true"
+            - name: ND_PROMETHEUS_METRICSPATH
+              value: /metrics
+          ports:
+            - name: http
+              containerPort: 4533
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              # Transcoding spikes above the ~200 MB idle figure; 1Gi is the
+              # ceiling before a scan or transcode is a capacity conversation.
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Readiness only: a stalled NFS read must not become a restart loop
+          # (exporter-liveness lesson applied to an app that reads a share).
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: music
+              mountPath: /music
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: navidrome-data
+        - name: music
+          # Same shape as the media-integrity scanner Job (scripts/media-scan-job.yaml.tmpl
+          # in the homelab repo). TODO(fill): NFS_PATH once the export exists.
+          nfs:
+            server: 192.168.0.201
+            path: /mnt/JBNAS_MEDIA/music
+            readOnly: true

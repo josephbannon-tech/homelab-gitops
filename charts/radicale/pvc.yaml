@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: radicale-data
+  namespace: pim
+  labels:
+    app: radicale
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # Calendars, contacts, task lists as .ics/.vcf files. Years of family
+      # PIM data is tens of MB; 1Gi is the plan doc's figure.
+      storage: 1Gi

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: radicale-config
+  namespace: pim
+  labels:
+    app: radicale
+data:
+  # Radicale's INI config. Users file comes from the radicale-users Sealed
+  # Secret mounted at /config/users; collections live on the PVC.
+  config: |
+    [server]
+    hosts = 0.0.0.0:5232
+
+    [auth]
+    type = htpasswd
+    htpasswd_filename = /config/users
+    htpasswd_encryption = bcrypt
+    # Slow down brute force on the LAN-only listener; harmless for DAVx5.
+    delay = 1
+
+    [rights]
+    # Each user sees only their own collections. The shared shopping list is
+    # handled by a rights file at fill time if owner_only proves too strict
+    # (Radicale supports `type = from_file` with per-collection rules).
+    type = owner_only
+
+    [storage]
+    filesystem_folder = /data/collections
+
+    [logging]
+    level = info

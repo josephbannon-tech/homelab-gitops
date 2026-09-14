@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: navidrome-scan
+  namespace: navidrome
+  labels:
+    app: navidrome
+spec:
+  # Scheduled scans replace the filesystem watcher (does not fire over NFS).
+  # Nightly is plenty for a library that grows by deliberate acquisitions.
+  schedule: "30 4 * * *"
+  timeZone: "Europe/London"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            app: navidrome
+            job: scan
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: scan
+              image: curlimages/curl:8.16.0
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  # MOUNT GUARD. This is the whole reason scans are external:
+                  # if the share is absent Navidrome reads the library as empty
+                  # and purges it. The marker file only exists on the real export,
+                  # never on an empty mountpoint. Fail closed, alert on the
+                  # failed Job (KubeJobFailed already fires in this cluster).
+                  if [ ! -f /music/.navidrome-library ]; then
+                    echo "navidrome-scan: library marker missing, share not mounted. Refusing to scan." >&2
+                    exit 1
+                  fi
+                  # TODO(fill): confirm the scan endpoint + auth for the pinned
+                  # version and move the token to a Sealed Secret.
+                  curl -fsS -X POST \
+                    -H "Authorization: Bearer ${NAVIDROME_TOKEN}" \
+                    "http://navidrome.navidrome.svc:4533/api/scanner/scan?fullScan=false"
+              env:
+                - name: NAVIDROME_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: navidrome-scan-token
+                      key: token
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: music
+                  mountPath: /music
+                  readOnly: true
+          volumes:
+            - name: music
+              nfs:
+                server: 192.168.0.201
+                path: /mnt/JBNAS_MEDIA/music
+                readOnly: true

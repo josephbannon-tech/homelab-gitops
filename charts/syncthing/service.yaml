@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncthing
+  namespace: pim
+  labels:
+    app: syncthing
+spec:
+  # NodePort for both the GUI and the sync listener. Peers (phone, JBPC004)
+  # get a static address of <node>:<sync nodePort>; global discovery and
+  # relays are switched off in the app so nothing leaves the estate.
+  # TODO(fill): NodePort choices; the sync port needs the same number on TCP
+  # and UDP.
+  type: NodePort
+  selector:
+    app: syncthing
+  ports:
+    - name: gui
+      port: 8384
+      targetPort: 8384
+      nodePort: 30384
+    - name: sync-tcp
+      port: 22000
+      targetPort: 22000
+      protocol: TCP
+      nodePort: 32000
+    - name: sync-udp
+      port: 22000
+      targetPort: 22000
+      protocol: UDP
+      nodePort: 32000

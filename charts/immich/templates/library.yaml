@@ -1,0 +1,38 @@
+# Photo originals on the NAS over NFS, as a static PV + PVC so the pod cannot
+# start against a missing mount (Immich also fails closed on its own `.immich`
+# marker files; that is a boot-order dependency, not a bug).
+#
+# TODO(fill): the dataset path is the open pool decision (see values.yaml and
+# the plan doc). The NAS side needs: dataset, NFS export to JBK8S01 with the
+# UID mapping sorted up front (the most common Immich-on-NFS complaint), and
+# `BACKUP_LOCATION` (Immich's built-in DB dumps) pointed at the same pool.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-static
+  mountOptions:
+    - nfsvers=4
+    - hard
+    - noatime
+  nfs:
+    server: 192.168.0.201
+    path: /mnt/JBNAS_SSD/immich
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+  namespace: immich
+spec:
+  storageClassName: nfs-static
+  accessModes: ["ReadWriteMany"]
+  volumeName: immich-library
+  resources:
+    requests:
+      storage: 200Gi

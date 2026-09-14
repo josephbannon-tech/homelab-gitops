@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: navidrome-data
+  namespace: navidrome
+  labels:
+    app: navidrome
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # SQLite DB, transcoding cache, cover-art cache. Local by design: the
+      # scan is orders of magnitude slower with the DB on the NFS share.
+      # 5Gi is generous for a family-sized library; the cache is bounded by
+      # ND_IMAGECACHESIZE / ND_TRANSCODINGCACHESIZE in the Deployment.
+      storage: 5Gi

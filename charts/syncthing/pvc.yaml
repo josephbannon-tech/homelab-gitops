@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: syncthing-config
+  namespace: pim
+  labels:
+    app: syncthing
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # config.xml, device keys, the index DB. The index grows with file count,
+      # not size; 1Gi covers a personal vault comfortably.
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: syncthing-vault
+  namespace: pim
+  labels:
+    app: syncthing
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # The replica of everything leaving Drive. Plan doc figure; alert on it
+      # with the PVC capacity rules the Immich rehearsal introduces.
+      storage: 20Gi

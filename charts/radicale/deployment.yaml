@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radicale
+  namespace: pim
+  labels:
+    app: radicale
+spec:
+  replicas: 1
+  # File-tree storage on a RWO PVC; one writer only.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: radicale
+  template:
+    metadata:
+      labels:
+        app: radicale
+    spec:
+      # tomsquest/docker-radicale runs as uid/gid 2999 by default and supports
+      # running fully non-root; fsGroup keeps the PVC writable for it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2999
+        runAsGroup: 2999
+        fsGroup: 2999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: radicale
+          # TODO(fill): verify the current tag and pin by digest.
+          image: tomsquest/docker-radicale:3.5.4.0
+          env:
+            - name: TZ
+              value: "Europe/London"
+          ports:
+            - name: http
+              containerPort: 5232
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              # Radicale answers 401 without auth on /, but /.web/ is a public
+              # static page: a clean 200 for probes.
+              path: /.web/
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config/config
+              subPath: config
+              readOnly: true
+            - name: users
+              mountPath: /config/users
+              subPath: users
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          configMap:
+            name: radicale-config
+        - name: users
+          secret:
+            # Sealed Secret in charts/secrets/ at fill time (key: users).
+            secretName: radicale-users
+        - name: data
+          persistentVolumeClaim:
+            claimName: radicale-data

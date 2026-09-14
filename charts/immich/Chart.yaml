@@ -1,0 +1,11 @@
+apiVersion: v2
+name: immich
+description: Immich, the estate photo library. Wrapper over the official chart; the cluster stateful-workload rehearsal. SCAFFOLD, not deployed.
+version: 0.1.0
+dependencies:
+  - name: immich
+    # 0.13.2 = appVersion v3.2.0, checked 2026-09-14 (`helm show chart`).
+    # The chart does NOT track every Immich release; image.tag is pinned in
+    # values.yaml and Renovate bumps both. The old HTTPS repo is gone, OCI only.
+    version: "0.13.2"
+    repository: oci://ghcr.io/immich-app/immich-charts

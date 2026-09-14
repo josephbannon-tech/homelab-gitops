@@ -1,0 +1,109 @@
+immich:
+  # --- Version pin -------------------------------------------------------------
+  # The chart's own default; kept explicit so Renovate has a line to bump and so
+  # the plan doc's "chart versions pinned on the day" step has a home.
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            tag: v3.2.0
+
+  immich:
+    # Prometheus metrics on :8081 (server) / :8082 (microservices); scraped by
+    # a ServiceMonitor at fill time. NOTE: Immich exports metrics through the
+    # OTel SDK but has no documented OTLP *trace* export. The plan doc's "first
+    # OTel emitter" step needs verifying against v3.2 before it is promised.
+    metrics:
+      enabled: true
+    persistence:
+      library:
+        # Photo ORIGINALS. A static NFS PersistentVolume + this claim live in
+        # templates/library.yaml. Pool is an OPEN DECISION: immich.md names
+        # JBNAS_MEDIA/immich, post-window-layout.md (later, validated) names
+        # JBNAS_SSD as the pool with backup discipline. Decide in the plan doc
+        # before filling templates/library.yaml.
+        existingClaim: immich-library
+    # Runtime config as a ConfigMap (chart default). Populate at fill time from
+    # the Admin UI export once the ML/job settings are tuned; until then the
+    # Admin UI owns it.
+    configuration: {}
+
+  # --- Valkey (Redis) ----------------------------------------------------------
+  # Bundled, emptyDir. Immich only uses it as a job queue; losing it on restart
+  # is fine and keeps one fewer stateful thing in the rehearsal.
+  valkey:
+    enabled: true
+
+  # --- Postgres: NOT bundled (chart 0.13.x removed it). ------------------------
+  # Needs an external vectorchord-capable Postgres. Decision at fill time between
+  # (a) CloudNativePG operator + a Cluster CR in templates/postgres.yaml (the
+  # chart maintainers' recommendation; adds an operator Application) and (b) a
+  # plain StatefulSet running ghcr.io/immich-app/postgres. Bias per immich.md:
+  # "simplest that can be backed up". Either way: DB on local-path (Immich docs:
+  # never on a network share), nightly pg_dump to the NAS with heartbeat, and a
+  # rehearsed restore as part of the definition of done.
+  server:
+    controllers:
+      main:
+        containers:
+          main:
+            env:
+              DB_HOSTNAME: immich-postgres-rw
+              DB_DATABASE_NAME: immich
+              DB_USERNAME: immich
+              DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: immich-postgres-app
+                    key: password
+              # Timezone for EXIF-less uploads and job schedules.
+              TZ: Europe/London
+    # Thumbnails + encoded video LOCAL, not on the NFS originals volume: the
+    # timeline UI hammers them (post-window-layout.md, validated 2026-08-31).
+    # Mounted over the upload subdirectories so Immich sees one tree.
+    persistence:
+      thumbs:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: immich-thumbs
+        globalMounts:
+          - path: /usr/src/app/upload/thumbs
+      encoded-video:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: immich-encoded-video
+        globalMounts:
+          - path: /usr/src/app/upload/encoded-video
+    service:
+      main:
+        # NodePort on the LAN, tailnet via the subnet router (estate rule).
+        # TODO(fill): pick a free NodePort and record it beside open-webui's 30081.
+        type: NodePort
+        ports:
+          http:
+            port: 2283
+            nodePort: 30283
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        # Node budget: Immich was sized at ~5-6 GB total on the 16 GB node.
+        memory: 3Gi
+
+  machine-learning:
+    enabled: true
+    # Model cache on a local PVC so CPU-only indexing does not re-download
+    # models on every restart. ~10 GB budget per post-window-layout.md.
+    persistence:
+      cache:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: immich-ml-cache
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 3Gi

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncthing
+  namespace: pim
+  labels:
+    app: syncthing
+spec:
+  replicas: 1
+  # Index DB + vault on RWO PVCs; one instance, one device ID. Recreate so a
+  # rollout never has two pods claiming the same device identity.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: syncthing
+  template:
+    metadata:
+      labels:
+        app: syncthing
+    spec:
+      # The official image honours PUID/PGID and otherwise runs as root to
+      # chown; pinning the pod to 1000 with fsGroup lets it run non-root.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: syncthing
+          # TODO(fill): verify the current 2.x tag and pin by digest.
+          image: syncthing/syncthing:2.0
+          env:
+            - name: TZ
+              value: "Europe/London"
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            # GUI listens on all pod interfaces; the Service is the boundary.
+            - name: STGUIADDRESS
+              value: "0.0.0.0:8384"
+          ports:
+            - name: gui
+              containerPort: 8384
+            - name: sync-tcp
+              containerPort: 22000
+              protocol: TCP
+            - name: sync-udp
+              containerPort: 22000
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              # Initial index of a 20 GB vault is the peak; steady state is
+              # well under 256Mi.
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /rest/noauth/health
+              port: gui
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /var/syncthing/config
+            - name: vault
+              mountPath: /var/syncthing/vault
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: syncthing-config
+        - name: vault
+          persistentVolumeClaim:
+            claimName: syncthing-vault

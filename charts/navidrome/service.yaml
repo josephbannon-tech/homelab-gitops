@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: navidrome
+  namespace: navidrome
+  labels:
+    app: navidrome
+spec:
+  # NodePort on the LAN; reachable over the tailnet via the subnet router.
+  # Never public. Subsonic clients on phones point at http://<node>:<nodePort>.
+  type: NodePort
+  selector:
+    app: navidrome
+  ports:
+    - name: http
+      port: 4533
+      targetPort: 4533
+      # TODO(fill): pick a free NodePort (30081 is open-webui) and record it in
+      # the plan doc + jbk8s01.md alongside the others.
+      nodePort: 30453

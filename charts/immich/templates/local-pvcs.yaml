@@ -1,0 +1,41 @@
+# Everything Immich needs LOCAL (post-window-layout.md, validated 2026-08-31):
+# thumbnails, encoded video, ML model cache. Postgres data is owned by whatever
+# runs Postgres (templates/postgres.yaml at fill time). All on local-path, which
+# since 2026-09-05 lives on the 100 GB P34A60-backed data disk (PVs at ~12 G).
+# Sizes are budgets to alert on, not forecasts; PVC capacity alerting is one of
+# the four patterns this deployment exists to prove.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-thumbs
+  namespace: immich
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-encoded-video
+  namespace: immich
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-ml-cache
+  namespace: immich
+spec:
+  storageClassName: local-path
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi

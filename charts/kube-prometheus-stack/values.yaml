@@ -101,6 +101,11 @@ kube-prometheus-stack:
             # 2026-09-09; until then the only signal was its save-backup heartbeat.
             - targets: ['192.168.0.70:9100']
               labels: {hostname: JBVM04, role: game}
+            # JBLLM01 (VM 108, CPU LLM server tier). node_exporter + Promtail
+            # installed 2026-09-20; the 32 GB allocation is the tightest number on
+            # the hypervisor, so node_memory_* here feeds the capacity alerts.
+            - targets: ['192.168.0.208:9100']
+              labels: {hostname: JBLLM01, role: llm}
           relabel_configs:
             - source_labels: [__address__]
               regex: '([^:]+):.*'

@@ -1,0 +1,23 @@
+# Syncthing availability: the always-on vault peer. /rest/noauth/health is the
+# unauthenticated health endpoint ({"status":"OK"}); probed on the GUI NodePort
+# so the NodePort path is covered. Info-only until peers depend on it daily.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: syncthing-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-syncthing
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.207:30384/rest/noauth/health
+      labels:
+        role: pim

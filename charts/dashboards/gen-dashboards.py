@@ -796,6 +796,11 @@ BACKUP_JOBS = [
      "Time since the Radicale archive (calendars, task lists, contacts) "
      "last landed on the NAS and passed its integrity check. Expected "
      "daily — red at ~50h means the family calendar is unprotected."),
+    ('name="syncthing-backup"',               "Syncthing",          90000, 180000,
+     "Time since the Syncthing archive (device identity + vault) last "
+     "landed on the NAS and passed its integrity check. Expected daily — "
+     "red at ~50h means the notes vault and the peer identity are "
+     "unprotected."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,

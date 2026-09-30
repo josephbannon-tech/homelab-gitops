@@ -9,8 +9,9 @@ spec:
   # NodePort for both the GUI and the sync listener. Peers (phone, JBPC004)
   # get a static address of <node>:<sync nodePort>; global discovery and
   # relays are switched off in the app so nothing leaves the estate.
-  # TODO(fill): NodePort choices; the sync port needs the same number on TCP
-  # and UDP.
+  # NodePorts decided 2026-09-30: GUI 30384, sync 32000 tcp+udp (same number
+  # on both, as Syncthing expects). Peers dial 192.168.0.207:32000 (LAN or
+  # via the tailnet subnet router).
   type: NodePort
   selector:
     app: syncthing

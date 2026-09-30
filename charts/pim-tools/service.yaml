@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pim-tools
+  namespace: pim
+  labels:
+    app: pim-tools
+spec:
+  # ClusterIP only: the consumer is Open WebUI's backend (in-cluster). The
+  # tools have no auth of their own in v1, so they are not exposed on a
+  # NodePort. Open WebUI Admin -> Tools -> OpenAPI server:
+  #   http://pim-tools.pim.svc:8000  (openapi.json at /openapi.json)
+  type: ClusterIP
+  selector:
+    app: pim-tools
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

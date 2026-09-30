@@ -792,6 +792,10 @@ BACKUP_JOBS = [
      "Time since the Open WebUI archive (users, chats, RAG uploads) last "
      "landed on the NAS and passed its integrity check. Expected daily — "
      "red at ~50h means chat history is unprotected."),
+    ('name="radicale-backup"',                "Radicale",           90000, 180000,
+     "Time since the Radicale archive (calendars, task lists, contacts) "
+     "last landed on the NAS and passed its integrity check. Expected "
+     "daily — red at ~50h means the family calendar is unprotected."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,

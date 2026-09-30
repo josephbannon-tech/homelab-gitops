@@ -1127,6 +1127,27 @@ kube-prometheus-stack:
                 action: "dig @1.1.1.1 google.com from JBVM01; check UDP/53 is not being dropped by the hub (a hub reboot has cleared this before). Pi-hole itself is fine if blackbox-dns-pihole is still 1."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
 
+    # Personal data layer (namespace pim). Radicale holds the family calendar
+    # and the shared shopping list; the phones sync every 15 min, so 10m of
+    # probe failure is a real outage, not a blip. Info-only baseline skipped:
+    # the target answers a static page and the probe shape is the proven
+    # open-webui one.
+    pim-services:
+      groups:
+        - name: pim.alerts
+          rules:
+            - alert: RadicaleDown
+              expr: probe_success{job="blackbox-radicale"} == 0
+              for: 10m
+              labels: {severity: warning, service: pim}
+              annotations:
+                summary: "Radicale (CalDAV/VTODO) unreachable on the NodePort for 10m"
+                host: "JBK8S01 (192.168.0.207:30232, ns pim)"
+                threshold: "probe_success == 0 for 10m (probe every 60s)"
+                impact: "Phone calendar and task lists stop syncing (DAVx5 / Tasks.org keep their local copy and retry). Shared shopping list edits queue on the device."
+                action: "`kubectl -n pim get pods,svc`; `curl -sI http://192.168.0.207:30232/.web/`; pod logs. Data is on PVC radicale-data; nightly archive in JBNAS01 backups/radicale/. Host doc: docs/jbk8s01.md."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+
     logging-stack-health:
       groups:
         - name: logging.alerts

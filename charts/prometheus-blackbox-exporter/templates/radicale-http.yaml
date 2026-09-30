@@ -1,0 +1,27 @@
+# Radicale availability (CalDAV/VTODO store behind DAVx5 + Tasks.org on the
+# phones). Probes /.web/ on the NodePort, the exact path a phone on the
+# LAN/tailnet takes, so kube-proxy / NodePort breakage shows up here, not just
+# pod health. /.web/ is Radicale's public static page: 200 without auth.
+# Module http_radicale (values.yaml): Radicale speaks HTTP/1.0, which the
+# default http_2xx module rejects.
+# Backed by RadicaleDown (warning, 10m) in kube-prometheus-stack values.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: radicale-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-radicale
+  interval: 60s
+  module: http_radicale
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.207:30232/.web/
+      labels:
+        role: pim

@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: syncthing-backup
+  namespace: pim
+  labels:
+    app: syncthing
+spec:
+  # Nightly tar of the vault AND the config dir (the device identity:
+  # cert.pem/key.pem/config.xml; without it every peer must re-pair after a
+  # rebuild), streamed to the NAS forced command
+  # (homelab/scripts/nas-backup-receive.sh syncthing). Heartbeat
+  # name="syncthing-backup" is written NAS-side after tar verifies.
+  # 02:40: after radicale (02:35), before the off-site seed (03:15).
+  # Growth note: a tarball a night is right while the vault is small (Obsidian
+  # notes, documents). If it approaches the 20Gi PVC, switch this job to
+  # rsync over the same key (the image ships rsync) and keep the tar for the
+  # config dir only.
+  schedule: "40 2 * * *"
+  timeZone: "Europe/London"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: syncthing
+            job: backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: ship
+              image: docker.io/instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  STAMP=$(date +%Y%m%d-%H%M)
+                  # Excludes Syncthing's own index DB (rebuilt on start) and
+                  # the versioning trash. A tar error mid-stream truncates the
+                  # archive; the receiver's tar -tzf gate rejects it.
+                  tar -C /src -czf - \
+                      --exclude='config/index-v*' --exclude='vault/.stfolder' \
+                      --exclude='vault/.stversions' \
+                      config vault \
+                    | ssh -i /ssh/id_ed25519 \
+                          -o UserKnownHostsFile=/ssh/known_hosts \
+                          -o StrictHostKeyChecking=yes \
+                          -o IdentitiesOnly=yes \
+                          -o BatchMode=yes \
+                          root@192.168.0.201 "$STAMP"
+              env:
+                - name: TZ
+                  value: "Europe/London"
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                runAsUser: 0
+                runAsGroup: 0
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: "1"
+                  memory: 256Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /src/config
+                  readOnly: true
+                - name: vault
+                  mountPath: /src/vault
+                  readOnly: true
+                - name: ssh
+                  mountPath: /ssh
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: config
+              persistentVolumeClaim:
+                claimName: syncthing-config
+                readOnly: true
+            - name: vault
+              persistentVolumeClaim:
+                claimName: syncthing-vault
+                readOnly: true
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: ssh
+              secret:
+                secretName: syncthing-backup-ssh
+                defaultMode: 0400

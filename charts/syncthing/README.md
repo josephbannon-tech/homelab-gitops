@@ -1,7 +1,7 @@
-# syncthing (SCAFFOLD, not deployed)
+# syncthing
 
-**Status: SCAFFOLD, 2026-09-14.** No `apps/syncthing.yaml` exists, so the root
-Application does not see this directory. Plan doc: homelab
+**Status: DEPLOYED 2026-09-30** (`apps/syncthing.yaml`; scaffolded 2026-09-14). The fill
+checklist below is kept as the record of what was decided. Plan doc: homelab
 `docs/plans/personal-data-layer.md` (step 5 of the build order, after Radicale
 and the tool server).
 
@@ -35,17 +35,16 @@ Phase 4 (files lane).
 
 ## To fill before `apps/syncthing.yaml` is added
 
-- [ ] Pin the image by digest (`syncthing/syncthing`, 2.x line; tag below is
+- [x] Pin the image by digest (2.1.5, 2026-09-30) (`syncthing/syncthing`, 2.x line; tag below is
       unverified, check at fill time).
-- [ ] Decide NodePorts for the GUI (8384) and the sync listener (22000/tcp+udp).
+- [x] NodePorts: GUI 30384, sync 32000 tcp+udp (subnet-router path).
       The sync port must be reachable from the phone over the tailnet, so
       confirm the subnet router path or use the tailscale-operator if landed.
-- [ ] First-boot: set the GUI user/password, record the device ID in the plan
+- [ ] First-boot (post-merge, via the REST API): set the GUI user/password, record the device ID in the plan
       doc, add the JBPC004 and phone device IDs, share the vault folder. Then
       export `config.xml` and decide whether to seed it from a ConfigMap (the
       tautulli init-container pattern) for rebuildability.
-- [ ] Blackbox probe of `/rest/noauth/health` (200 `{"status":"OK"}`),
+- [ ] Blackbox probe of `/rest/noauth/health` (follow-up PR once the service answers) (200 `{"status":"OK"}`),
       `probe_success=1` verified **before** merge.
-- [ ] Backup CronJob + heartbeat + off-site seed path (same pattern as
-      radicale; design once).
-- [ ] `apps/syncthing.yaml` with `CreateNamespace=true`.
+- [x] Backup CronJob (`backup-cronjob.yaml`, 02:40, config + vault, generic NAS receiver) + heartbeat; off-site seed path NAS-side.
+- [x] `apps/syncthing.yaml` with `CreateNamespace=true` and operator-owned replicas.

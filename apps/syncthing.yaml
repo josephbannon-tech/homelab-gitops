@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: syncthing
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/josephbannon-tech/homelab-gitops.git
+    targetRevision: HEAD
+    path: charts/syncthing
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pim
+  # Stateful (config identity + vault PVCs): operator-owned replicas, same
+  # rule as open-webui, tautulli and radicale.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: syncthing
+      jsonPointers:
+        - /spec/replicas
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

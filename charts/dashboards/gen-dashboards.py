@@ -788,6 +788,10 @@ BACKUP_JOBS = [
      "Time since the last successful restic push of the LLM-rebuildable "
      "seed to off-site storage. Expected daily — red at ~50h means the "
      "estate's only off-site copy is going stale."),
+    ('name="open-webui-backup"',              "Open WebUI",         90000, 180000,
+     "Time since the Open WebUI archive (users, chats, RAG uploads) last "
+     "landed on the NAS and passed its integrity check. Expected daily — "
+     "red at ~50h means chat history is unprotected."),
 ]
 
 def backup_age_stat(id, title, selector, x, y, w, h, yellow_s, red_s,
@@ -922,14 +926,15 @@ capacity_panels = [
     # Meta-tile separates "textfile dir missing or unreadable" from "all
     # backups failed simultaneously". Without it the backup tiles above light
     # red in unison and the real cause hides.
-    stat(26, "Textfile scrape error (any host)",
+    # ids 17..29 are reserved for BACKUP_JOBS tiles (room for 13 jobs).
+    stat(30, "Textfile scrape error (any host)",
          'max(node_textfile_scrape_error{job="node-exporter-external"})',
          "short", 0, 52, 6, 4, thresholds=ZERO_GREEN_ONE_RED,
          description="1 if any host's node-exporter textfile collector is "
                      "broken or unreadable. Disambiguates 'textfile dir "
                      "missing' from 'all backups genuinely failed' — the "
                      "former lights every backup tile red at once."),
-    text_panel(27, "Residual gaps", CAP_BACKUP_GAPS, 6, 52, 18, 4,
+    text_panel(31, "Residual gaps", CAP_BACKUP_GAPS, 6, 52, 18, 4,
                description="Backup/DR coverage gaps not visible in the "
                            "heartbeat tiles above — single-copy paths and "
                            "single-parity pools."),

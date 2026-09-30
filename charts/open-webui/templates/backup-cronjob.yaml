@@ -1,0 +1,159 @@
+{{- if .Values.backup.enabled }}
+# Nightly backup of the Open WebUI state to the NAS. Design and approvals:
+# homelab/docs/plans/open-webui.md "Backup design".
+#
+# Two containers, one shared emptyDir:
+#   1. init "dump"  (the app image, already on the node): SQLite online-backup
+#      of webui.db (consistent under WAL), PRAGMA integrity_check on the copy,
+#      then tar + uploads/ + vector_db/. cache/ (the 1 GB embedding model) is
+#      derivable and stays out.
+#   2. "ship" (OpenSSH client only): streams the archive over stdin to a
+#      forced command on the NAS. The NAS verifies the tarball, prunes, and only
+#      then writes backup_last_success_timestamp_seconds{name="open-webui-backup"}
+#      so BackupHeartbeatStale covers any failure in the chain without a new rule.
+#
+# The PVC is mounted read-only. WAL readers need the -wal/-shm files to exist,
+# which they do while the app is running (SQLite >= 3.22 on a read-only mount).
+# "ship" runs as root inside its container: the OpenSSH client fatals on a uid
+# with no passwd entry, and the secret file must be 0400 for ssh to accept it.
+# All capabilities are dropped and the root filesystem is read-only.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: open-webui-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: open-webui
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  timeZone: "Europe/London"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: open-webui
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: dump
+              image: "{{ index .Values "open-webui" "image" "repository" }}:{{ index .Values "open-webui" "image" "tag" }}"
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "-c"]
+              args:
+                - |
+                  import os, sqlite3, sys, tarfile, time
+                  SRC, OUT = "/data", "/work"
+                  stamp = time.strftime("%Y%m%d-%H%M")
+                  copy = os.path.join(OUT, "webui.db")
+                  src = sqlite3.connect("file:%s/webui.db?mode=ro" % SRC, uri=True)
+                  dst = sqlite3.connect(copy)
+                  src.backup(dst)
+                  src.close()
+                  verdict = dst.execute("PRAGMA integrity_check").fetchone()[0]
+                  dst.close()
+                  if verdict != "ok":
+                      sys.exit("dump: integrity_check on the copy returned %r, aborting" % verdict)
+                  name = "open-webui-%s.tar.gz" % stamp
+                  with tarfile.open(os.path.join(OUT, name), "w:gz") as tar:
+                      tar.add(copy, arcname="webui.db")
+                      for sub in ("uploads", "vector_db"):
+                          path = os.path.join(SRC, sub)
+                          if os.path.isdir(path):
+                              tar.add(path, arcname=sub)
+                  os.remove(copy)
+                  with open(os.path.join(OUT, "STAMP"), "w") as fh:
+                      fh.write(stamp)
+                  print("dump: %s, %d bytes" % (name, os.path.getsize(os.path.join(OUT, name))))
+              env:
+                - name: TZ
+                  value: "Europe/London"
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: work
+                  mountPath: /work
+          containers:
+            - name: ship
+              image: {{ .Values.backup.shipImage | quote }}
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  STAMP=$(cat /work/STAMP)
+                  ssh -i /ssh/id_ed25519 \
+                      -o UserKnownHostsFile=/ssh/known_hosts \
+                      -o StrictHostKeyChecking=yes \
+                      -o IdentitiesOnly=yes \
+                      -o BatchMode=yes \
+                      {{ .Values.backup.nasUser }}@{{ .Values.backup.nasHost }} "$STAMP" \
+                      < "/work/open-webui-${STAMP}.tar.gz"
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                runAsUser: 0
+                runAsGroup: 0
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                  readOnly: true
+                - name: ssh
+                  mountPath: /ssh
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ .Values.backup.pvcName }}
+                readOnly: true
+            - name: work
+              emptyDir:
+                sizeLimit: 1Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: ssh
+              secret:
+                secretName: {{ .Values.backup.secretName }}
+                defaultMode: 0400
+{{- end }}

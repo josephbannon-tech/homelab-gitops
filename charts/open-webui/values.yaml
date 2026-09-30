@@ -44,8 +44,8 @@ open-webui:
     - "not-used"
 
   # --- Storage: local-path PVC (Loki/Tempo pattern) ------------------------------
-  # Holds the SQLite DB, uploads, and the RAG vector store. Backup: nightly
-  # sqlite-backup + tar to the NAS with a heartbeat (follow-up, see plan doc).
+  # Holds the SQLite DB, uploads, and the RAG vector store. Backed up nightly
+  # by the CronJob below (templates/backup-cronjob.yaml).
   persistence:
     enabled: true
     storageClass: local-path
@@ -90,3 +90,20 @@ open-webui:
       value: "pending"
     - name: WEBUI_NAME
       value: "Homelab Chat"
+
+# --- Nightly backup to the NAS (templates/backup-cronjob.yaml) ------------------
+# 02:30 Europe/London: after JBNAS01 config (02:15), before the off-site seed
+# run (03:15) so the seed always ships last night's archive. NAS side: a
+# restricted forced-command key (homelab/scripts/open-webui-backup-receive.sh),
+# 14 generations, heartbeat written NAS-side only after the archive verifies.
+backup:
+  enabled: true
+  schedule: "30 2 * * *"
+  pvcName: open-webui
+  nasHost: 192.168.0.201
+  nasUser: root
+  # SealedSecret in charts/secrets/open-webui-backup-ssh.yaml: id_ed25519 +
+  # known_hosts (NAS host key pinned; a NAS rebuild fails loudly, never TOFU).
+  secretName: open-webui-backup-ssh
+  # Alpine + OpenSSH client, nothing else. Pinned by digest (alpine3.23-r3).
+  shipImage: docker.io/instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a

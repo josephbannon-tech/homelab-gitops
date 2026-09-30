@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: radicale-backup
+  namespace: pim
+  labels:
+    app: radicale
+spec:
+  # Nightly tar of the collections tree, streamed over SSH to a forced command
+  # on the NAS (homelab/scripts/nas-backup-receive.sh radicale). The NAS
+  # verifies the tarball and only then writes
+  # backup_last_success_timestamp_seconds{name="radicale-backup"}, so
+  # BackupHeartbeatStale covers the whole chain. Same pattern as open-webui,
+  # one container because the state is a plain file tree (no DB to snapshot;
+  # Radicale writes each .ics atomically). 02:35: after JBNAS01 config (02:15),
+  # before the off-site seed run (03:15).
+  schedule: "35 2 * * *"
+  timeZone: "Europe/London"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: radicale
+            job: backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: ship
+              # Alpine + OpenSSH client + busybox tar. Digest-pinned
+              # (alpine3.23-r3, same image as the open-webui backup).
+              image: docker.io/instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  STAMP=$(date +%Y%m%d-%H%M)
+                  # A tar error mid-stream truncates the archive; the receiver's
+                  # tar -tzf gate rejects it and no heartbeat is written.
+                  tar -C /data -czf - collections \
+                    | ssh -i /ssh/id_ed25519 \
+                          -o UserKnownHostsFile=/ssh/known_hosts \
+                          -o StrictHostKeyChecking=yes \
+                          -o IdentitiesOnly=yes \
+                          -o BatchMode=yes \
+                          root@192.168.0.201 "$STAMP"
+              env:
+                - name: TZ
+                  value: "Europe/London"
+                - name: HOME
+                  value: /tmp
+              # Root inside the container: the OpenSSH client fatals on a uid
+              # with no passwd entry and the key must be 0400. Caps dropped,
+              # read-only rootfs, PVC read-only.
+              securityContext:
+                runAsUser: 0
+                runAsGroup: 0
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: ssh
+                  mountPath: /ssh
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: radicale-data
+                readOnly: true
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: ssh
+              secret:
+                secretName: radicale-backup-ssh
+                defaultMode: 0400

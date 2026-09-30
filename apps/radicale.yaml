@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: radicale
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/josephbannon-tech/homelab-gitops.git
+    targetRevision: HEAD
+    path: charts/radicale
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pim
+  # Stateful (PVC of calendars/tasks): operator-owned replicas, same rule as
+  # open-webui and tautulli, so a scale-to-0 for a restore is not healed away.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: radicale
+      jsonPointers:
+        - /spec/replicas
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

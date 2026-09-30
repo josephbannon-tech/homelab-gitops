@@ -1,7 +1,7 @@
-# radicale (SCAFFOLD, not deployed)
+# radicale
 
-**Status: SCAFFOLD, 2026-09-14.** No `apps/radicale.yaml` exists, so the root
-Application does not see this directory. Plan doc: homelab
+**Status: DEPLOYED 2026-09-30** (`apps/radicale.yaml`; scaffolded 2026-09-14). Fill
+checklist below kept as the record of what was decided at fill time. Plan doc: homelab
 `docs/plans/personal-data-layer.md` (step 1 of the build order; Radicale goes
 first because the phone's data must live in a standard store before any tool
 layer reads it).
@@ -27,18 +27,18 @@ Phase 4.
 
 ## To fill before `apps/radicale.yaml` is added
 
-- [ ] Pin the image by digest (`tomsquest/docker-radicale`, the maintained
+- [x] Pin the image by digest (3.8.1.1, 2026-09-30) (`tomsquest/docker-radicale`, the maintained
       community image; tag below is unverified, check at fill time).
-- [ ] Sealed Secret `radicale-users`: bcrypt htpasswd with the operator user
+- [x] Sealed Secret `radicale-users` (operator user only for now; partner added at build step 4): bcrypt htpasswd with the operator user
       and the partner user. Generate with `htpasswd -B -c users <name>`.
-- [ ] Decide the NodePort; if the in-flight `tailscale-operator` lands first,
+- [x] NodePort 30232 (subnet router path); if the in-flight `tailscale-operator` lands first,
       consider a tailnet Service (`tailscale.com/expose`) instead so the
       partner phone does not depend on the subnet router.
-- [ ] Blackbox probe of `/.web/` (200) on the NodePort, `probe_success=1`
+- [ ] Blackbox probe (follow-up PR once the service answers, per the pre-merge validation rule) of `/.web/` (200) on the NodePort, `probe_success=1`
       verified **before** merge; alert warning-level.
-- [ ] Backup CronJob + heartbeat + off-site seed path (see plan doc §storage).
+- [x] Backup CronJob (`backup-cronjob.yaml`, 02:35, generic NAS receiver) + heartbeat; off-site seed path added NAS-side (see plan doc §storage).
       The Open WebUI backup CronJob does not exist yet either; design the
       pattern once and reuse it here.
 - [ ] Google Calendar/Contacts `.ics`/`.vcf` export and import; run both for a
       few weeks before the Google surfaces go dead.
-- [ ] `apps/radicale.yaml` with `CreateNamespace=true`.
+- [x] `apps/radicale.yaml` with `CreateNamespace=true` and operator-owned replicas.

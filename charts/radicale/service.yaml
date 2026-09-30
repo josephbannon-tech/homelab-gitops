@@ -7,8 +7,8 @@ metadata:
     app: radicale
 spec:
   # NodePort on the LAN, tailnet via the subnet router. Never public. DAVx5
-  # base URL = http://<node>:<nodePort>/. TODO(fill): NodePort choice, or a
-  # tailscale-operator Service if that lands first (see README).
+  # base URL = http://192.168.0.207:30232/ (decided 2026-09-30; a tailnet
+  # Service can replace it if the tailscale-operator lands).
   type: NodePort
   selector:
     app: radicale

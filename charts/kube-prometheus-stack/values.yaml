@@ -1075,6 +1075,52 @@ kube-prometheus-stack:
                 action: "`curl http://192.168.0.208:8080/health` from JBVM02; `ssh jbannon@192.168.0.208 'systemctl status llama-swap'`; `qm status 108` on JBSRV01. Host doc: docs/jbllm01.md."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
 
+    # WAN reachability. The wan-icmp / wan-http / dns-upstream blackbox probes
+    # (charts/prometheus-blackbox-exporter, PR #88) ran info-only from
+    # 2026-09-09; 21-day baseline to 2026-09-30: 99.96-99.997% per target and
+    # never both ICMP targets down for a full 2 minutes, so `for: 5m` on BOTH
+    # targets had zero false positives. Promoted 2026-09-30.
+    # Delivery caveat: with the WAN down Alertmanager cannot reach Discord, so
+    # WanDown arrives when the line returns. It is still the timestamped
+    # record every DOCSIS incident so far lacked (2026-05-28, 07-22, 08-14).
+    wan-reachability:
+      groups:
+        - name: wan.alerts
+          rules:
+            - alert: WanDown
+              expr: max(probe_success{job="blackbox-wan-icmp"}) == 0
+              for: 5m
+              labels: {severity: warning, service: wan}
+              annotations:
+                summary: "WAN down: ICMP to both 1.1.1.1 and 9.9.9.9 failing for 5m"
+                host: "Virgin Media hub (192.168.0.1)"
+                threshold: "both wan-icmp targets probe_success == 0 for 5m (probe every 30s)"
+                impact: "Nothing outside the LAN is reachable: Tailscale remote access, Plex remote streams, Pi-hole upstream lookups once cache TTLs expire. LAN-only services keep working."
+                action: "Hub event log + DOCSIS channel stats at http://192.168.0.1 (unauthenticated). Note the start time from this alert for the ISP record. Runbook: docs/incidents/vm-complaint-C-0807263896.md in the homelab docs."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+            - alert: WanPartialService
+              expr: max(probe_success{job="blackbox-wan-http"}) == 0 and max(probe_success{job="blackbox-wan-icmp"}) == 1
+              for: 10m
+              labels: {severity: warning, service: wan}
+              annotations:
+                summary: "WAN partial service: HTTPS to the internet failing for 10m while ICMP still passes"
+                host: "Virgin Media hub (192.168.0.1)"
+                threshold: "wan-http probe_success == 0 and any wan-icmp target == 1, for 10m"
+                impact: "The DOCSIS partial-service fingerprint (2026-07-22): pings pass, TCP/TLS stalls. Web, Tailscale and Plex remote break while a ping test looks fine."
+                action: "Check the hub's DOCSIS channel table for missing/partial upstream channels; run a speed test from JBVM01. If it persists, this is the evidence for a reprovision request."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+            - alert: UpstreamDnsDown
+              expr: max(probe_success{job="blackbox-dns-upstream"}) == 0 and max(probe_success{job="blackbox-wan-icmp"}) == 1
+              for: 5m
+              labels: {severity: warning, service: wan}
+              annotations:
+                summary: "Both upstream resolvers (1.1.1.1, 9.9.9.9) failing DNS for 5m while the WAN pings"
+                host: "Pi-hole upstreams via the Virgin Media hub"
+                threshold: "both dns-upstream targets probe_success == 0 and wan-icmp up, for 5m"
+                impact: "Pi-hole is answering from cache only; household DNS starts failing name by name as TTLs expire. The pihole-dns SLO will not see it until then."
+                action: "dig @1.1.1.1 google.com from JBVM01; check UDP/53 is not being dropped by the hub (a hub reboot has cleared this before). Pi-hole itself is fine if blackbox-dns-pihole is still 1."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+
     logging-stack-health:
       groups:
         - name: logging.alerts

@@ -32,10 +32,16 @@ kube-prometheus-stack:
       passwordKey: admin-password
     # Image renderer sidecar (separate Deployment + Service). Powers the
     # /render/* HTTP endpoints used to PNG-snapshot dashboards. The chart
-    # auto-configures grafana.ini.rendering.{server_url, callback_url} and
-    # the shared renderer token — do not override here.
+    # auto-configures grafana.ini.rendering.{server_url, callback_url}.
+    # The shared Grafana<->renderer auth token is PINNED via existingSecret
+    # (charts/secrets/grafana-image-renderer-token.yaml, key "token"), the same
+    # fix as admin.existingSecret above: the sub-chart otherwise mints a fresh
+    # token on every ArgoCD render (its `lookup` sees no cluster under
+    # `helm template`), and the two running pods drift into 401s until both
+    # are restarted (observability.md known issue, 2026-05-17 -> 2026-09-30).
     imageRenderer:
       enabled: true
+      existingSecret: grafana-image-renderer-token
       replicas: 1
       resources:
         requests: {cpu: 50m, memory: 128Mi}

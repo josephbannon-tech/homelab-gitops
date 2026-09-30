@@ -35,6 +35,17 @@ prometheus-blackbox-exporter:
           query_name: google.com
           query_type: A
           valid_rcodes: [NOERROR]
+      http_radicale:
+        # Radicale's built-in server answers HTTP/1.0, which the chart's
+        # default http_2xx module rejects ("Invalid HTTP version number",
+        # proven via /probe?debug=true 2026-09-30). Same probe otherwise.
+        prober: http
+        timeout: 5s
+        http:
+          method: GET
+          preferred_ip_protocol: ip4
+          valid_http_versions: ["HTTP/1.0", "HTTP/1.1", "HTTP/2.0"]
+          valid_status_codes: [200]
       http_plex:
         prober: http
         timeout: 5s

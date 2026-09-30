@@ -14,9 +14,21 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: open-webui
+  # Stateful app: an operator `kubectl scale --replicas=0` for a PVC restore
+  # must stick. Without this, self-heal re-scales within ~30 s (it did twice in
+  # the 2026-09-30 restore rehearsal). RespectIgnoreDifferences makes the
+  # ignore apply at sync time too, so replicas is now operator-owned: a change
+  # to replicaCount in values.yaml is NOT applied, scale by hand.
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      name: open-webui
+      jsonPointers:
+        - /spec/replicas
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true

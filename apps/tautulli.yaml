@@ -12,9 +12,18 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
+  # Stateful (2Gi PVC of watch history): same operator-owned replicas rule as
+  # open-webui, so a scale-to-0 for a restore is not healed away.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: tautulli
+      jsonPointers:
+        - /spec/replicas
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true

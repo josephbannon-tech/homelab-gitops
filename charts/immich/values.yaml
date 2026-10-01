@@ -56,24 +56,31 @@ immich:
                     name: immich-postgres-app
                     key: password
               DB_VECTOR_EXTENSION: vectorchord
+              # The chart mounts the library PVC at /data but the v3.2 image
+              # still defaults to the legacy /usr/src/app/upload (first boot
+              # 2026-10-01 wrote its mount markers to the container overlay).
+              # Pin the media location so originals land on the NFS volume.
+              IMMICH_MEDIA_LOCATION: /data
               # Timezone for EXIF-less uploads and job schedules.
               TZ: Europe/London
     # Thumbnails + encoded video LOCAL, not on the NFS originals volume: the
     # timeline UI hammers them (post-window-layout.md, validated 2026-08-31).
-    # Mounted over the upload subdirectories so Immich sees one tree.
+    # Mounted over the media-location subdirectories so Immich sees one tree.
+    # Never mount anything under /usr/src/app/upload: a populated legacy path
+    # makes Immich pick it over /data.
     persistence:
       thumbs:
         enabled: true
         type: persistentVolumeClaim
         existingClaim: immich-thumbs
         globalMounts:
-          - path: /usr/src/app/upload/thumbs
+          - path: /data/thumbs
       encoded-video:
         enabled: true
         type: persistentVolumeClaim
         existingClaim: immich-encoded-video
         globalMounts:
-          - path: /usr/src/app/upload/encoded-video
+          - path: /data/encoded-video
     service:
       main:
         # NodePort on the LAN, tailnet via the subnet router (estate rule).

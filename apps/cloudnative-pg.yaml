@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnative-pg
+  namespace: argocd
+  annotations:
+    # Operator + CRDs must exist before any Cluster CR (immich) is applied.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/josephbannon-tech/homelab-gitops.git
+    targetRevision: HEAD
+    path: charts/cloudnative-pg
+    helm:
+      releaseName: cnpg
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # CNPG CRDs exceed the 262 KB last-applied annotation limit.
+      - ServerSideApply=true

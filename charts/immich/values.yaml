@@ -18,11 +18,8 @@ immich:
       enabled: true
     persistence:
       library:
-        # Photo ORIGINALS. A static NFS PersistentVolume + this claim live in
-        # templates/library.yaml. Pool is an OPEN DECISION: immich.md names
-        # JBNAS_MEDIA/immich, post-window-layout.md (later, validated) names
-        # JBNAS_SSD as the pool with backup discipline. Decide in the plan doc
-        # before filling templates/library.yaml.
+        # Photo ORIGINALS: static NFS PV + claim in templates/library.yaml on
+        # JBNAS_SSD/immich (decided 2026-09-30).
         existingClaim: immich-library
     # Runtime config as a ConfigMap (chart default). Populate at fill time from
     # the Admin UI export once the ML/job settings are tuned; until then the
@@ -35,15 +32,16 @@ immich:
   valkey:
     enabled: true
 
-  # --- Postgres: NOT bundled (chart 0.13.x removed it). ------------------------
-  # Needs an external vectorchord-capable Postgres. Decision at fill time between
-  # (a) CloudNativePG operator + a Cluster CR in templates/postgres.yaml (the
-  # chart maintainers' recommendation; adds an operator Application) and (b) a
-  # plain StatefulSet running ghcr.io/immich-app/postgres. Bias per immich.md:
-  # "simplest that can be backed up". Either way: DB on local-path (Immich docs:
-  # never on a network share), nightly pg_dump to the NAS with heartbeat, and a
-  # rehearsed restore as part of the definition of done.
+  # --- Postgres: CloudNativePG Cluster in templates/postgres.yaml ---------------
+  # (decided 2026-09-30). CNPG manages Secret immich-postgres-app; service
+  # immich-postgres-rw. Nightly pg_dump to the NAS: templates/db-backup-cronjob.yaml.
   server:
+    # The chart creates a ServiceMonitor when metrics are on; it needs the
+    # release label to be selected by the estate's Prometheus.
+    serviceMonitor:
+      main:
+        labels:
+          release: kube-prometheus-stack
     controllers:
       main:
         containers:
@@ -57,6 +55,7 @@ immich:
                   secretKeyRef:
                     name: immich-postgres-app
                     key: password
+              DB_VECTOR_EXTENSION: vectorchord
               # Timezone for EXIF-less uploads and job schedules.
               TZ: Europe/London
     # Thumbnails + encoded video LOCAL, not on the NFS originals volume: the
@@ -78,7 +77,7 @@ immich:
     service:
       main:
         # NodePort on the LAN, tailnet via the subnet router (estate rule).
-        # TODO(fill): pick a free NodePort and record it beside open-webui's 30081.
+        # 30283 decided 2026-09-30 (recorded in gitops.md beside the others).
         type: NodePort
         ports:
           http:

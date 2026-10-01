@@ -1,0 +1,135 @@
+# Nightly logical dump of the Immich database to the NAS (generic receiver,
+# job "immich-db"), heartbeat name="immich-db-backup" written NAS-side after
+# the tarball verifies. Two containers, shared emptyDir, open-webui pattern:
+#   init "dump": the same Postgres image as the cluster, pg_dump -Fc with the
+#                app credentials CNPG manages, so the client version matches.
+#   "ship":      OpenSSH client only; tars the dump and streams it to the
+#                forced command.
+# 02:45: after syncthing (02:40), before the off-site seed (03:15). The
+# originals on the NFS library are the NAS's own data (RAIDZ1) and will join
+# the photos-tier restic repo on B2; this job covers the metadata that cannot
+# be re-derived from the files (albums, people, favourites).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: immich-db-backup
+  namespace: immich
+  labels:
+    app.kubernetes.io/name: immich
+    app.kubernetes.io/component: db-backup
+spec:
+  schedule: "45 2 * * *"
+  timeZone: "Europe/London"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: immich
+            app.kubernetes.io/component: db-backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: dump
+              image: ghcr.io/tensorchord/cloudnative-vectorchord:17-0.4.3
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  STAMP=$(date +%Y%m%d-%H%M)
+                  pg_dump -Fc --no-owner --no-acl -h immich-postgres-rw -U "$PGUSER" immich > "/work/immich-${STAMP}.dump"
+                  pg_restore --list "/work/immich-${STAMP}.dump" > /dev/null
+                  printf '%s' "$STAMP" > /work/STAMP
+                  echo "dump: immich-${STAMP}.dump, $(stat -c%s "/work/immich-${STAMP}.dump") bytes"
+              env:
+                - name: TZ
+                  value: "Europe/London"
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-postgres-app
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-postgres-app
+                      key: password
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 26
+                runAsGroup: 26
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+          containers:
+            - name: ship
+              image: docker.io/instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  STAMP=$(cat /work/STAMP)
+                  tar -C /work -czf - "immich-${STAMP}.dump" \
+                    | ssh -i /ssh/id_ed25519 \
+                          -o UserKnownHostsFile=/ssh/known_hosts \
+                          -o StrictHostKeyChecking=yes \
+                          -o IdentitiesOnly=yes \
+                          -o BatchMode=yes \
+                          root@192.168.0.201 "$STAMP"
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                runAsUser: 0
+                runAsGroup: 0
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+                  add: [DAC_READ_SEARCH]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                  readOnly: true
+                - name: ssh
+                  mountPath: /ssh
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: work
+              emptyDir:
+                sizeLimit: 2Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: ssh
+              secret:
+                secretName: immich-db-backup-ssh
+                defaultMode: 0400

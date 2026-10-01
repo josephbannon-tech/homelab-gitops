@@ -1,6 +1,6 @@
 apiVersion: v2
 name: immich
-description: Immich, the estate photo library. Wrapper over the official chart; the cluster stateful-workload rehearsal. SCAFFOLD, not deployed.
+description: Immich, the estate photo library. Wrapper over the official chart; the cluster stateful-workload rehearsal (CNPG Postgres, NFS originals, local thumbs).
 version: 0.1.0
 dependencies:
   - name: immich

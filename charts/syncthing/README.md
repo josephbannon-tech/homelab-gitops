@@ -40,11 +40,11 @@ Phase 4 (files lane).
 - [x] NodePorts: GUI 30384, sync 32000 tcp+udp (subnet-router path).
       The sync port must be reachable from the phone over the tailnet, so
       confirm the subnet router path or use the tailscale-operator if landed.
-- [ ] First-boot (post-merge, via the REST API): set the GUI user/password, record the device ID in the plan
+- [x] First-boot done 2026-09-30 via the REST API (GUI auth, discovery/relays/NAT off, device `jbk8s01`, folder `vault`). Original: set the GUI user/password, record the device ID in the plan
       doc, add the JBPC004 and phone device IDs, share the vault folder. Then
       export `config.xml` and decide whether to seed it from a ConfigMap (the
       tautulli init-container pattern) for rebuildability.
-- [ ] Blackbox probe of `/rest/noauth/health` (follow-up PR once the service answers) (200 `{"status":"OK"}`),
+- [x] Blackbox probe `blackbox-syncthing` (PR #102) (200 `{"status":"OK"}`),
       `probe_success=1` verified **before** merge.
 - [x] Backup CronJob (`backup-cronjob.yaml`, 02:40, config + vault, generic NAS receiver) + heartbeat; off-site seed path NAS-side.
 - [x] `apps/syncthing.yaml` with `CreateNamespace=true` and operator-owned replicas.

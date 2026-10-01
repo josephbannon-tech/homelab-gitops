@@ -34,6 +34,9 @@ graph TB
             owui["Open WebUI\nchat front end (PWA)"]
             radicale["Radicale\nCalDAV / tasks"]
             pim["pim-tools\nOpenAPI tool server"]
+            syncthing["Syncthing\nvault peer"]
+            cnpg["CloudNativePG\nPostgres operator"]
+            immich["Immich\nphoto library"]
         end
     end
 
@@ -44,6 +47,8 @@ graph TB
     argocd --> k8s
     owui -->|"tool calls"| pim
     pim -->|"CalDAV"| radicale
+    cnpg -->|"Cluster CR"| immich
+    immich -->|"NFS originals"| nas
     prom -->|"node_exporter"| nas
     prom -->|"node_exporter"| vm01
     prom -->|"node_exporter"| vm02
@@ -187,6 +192,9 @@ The most interesting outcome of this phase wasn't the SLOs themselves but the da
 | CI | GitHub Actions | Helm lint, YAML validation and a dashboard-generator drift check on every PR |
 | Chat front end | Open WebUI | Installable PWA over the estate's local LLM tiers via an LLM router; single replica on SQLite with a nightly backup CronJob whose heartbeat is written by the NAS only after the archive verifies |
 | Personal data store | Radicale | CalDAV/VTODO server so calendar and task lists live in a standard format the phones read natively (DAVx5, Tasks.org); the chat is a second door onto the same data, never the only one |
+| File vault | Syncthing | Always-on peer holding a full replica of the notes/documents vault; global discovery, relays and NAT traversal off so nothing leaves the estate; identity + vault backed up nightly |
+| Postgres operator | CloudNativePG | Declarative Postgres (`Cluster` CRs) with bootstrap SQL, PodMonitors and backup CRDs; chosen over a hand-rolled StatefulSet because it is the pattern a platform team runs |
+| Photo library | Immich | The stateful-workload rehearsal: CNPG Postgres with VectorChord, originals on an NFS static PV from the NAS, thumbnails and ML cache on local NVMe, nightly `pg_dump` with a rehearsed restore, PVC capacity alerting |
 | LLM tool server | [pim-tools](https://github.com/josephbannon-tech/homelab-pim-tools) | Deterministic, idempotent tools over Radicale registered in Open WebUI as an OpenAPI tool server; image built in that repo's CI (ruff, pytest, Trivy gate) and pinned here by digest |
 
 ---
@@ -195,6 +203,9 @@ The most interesting outcome of this phase wasn't the SLOs themselves but the da
 
 **CI-built images pinned by digest, no registry in the estate**
 The homelab has no container registry, so custom code (`pim-tools`) is built by GitHub Actions in its own repo, scanned with Trivy (HIGH/CRITICAL with a fix available fail the build) and pushed to GHCR. This repo references the image by digest, so a rebuild never changes what runs without a reviewed commit here, and Renovate raises that commit.
+
+**NFS for originals, local NVMe for everything the UI hammers**
+Immich's photo originals live on the NAS (RAIDZ1, the durable pool) over an NFS static PV, mounted with `mapall` to one uid so pod identity never leaks into file ownership. Thumbnails, encoded video, the ML model cache and the database stay on the node's local NVMe: Immich's own docs forbid the database on a network share, and the timeline UI's thumbnail reads are latency-bound. The split is written into the chart values so the trade-off is visible.
 
 **Operator-owned replicas on stateful apps**
 Apps with PVC state (`open-webui`, `tautulli`, `radicale`) carry `ignoreDifferences` on `/spec/replicas` with `RespectIgnoreDifferences=true`. A `kubectl scale --replicas=0` for a restore then sticks; without it self-heal put the pod back within about 30 seconds, twice, during a rehearsal, once mid file swap. The trade-off is that `replicaCount` in values is no longer applied for those apps, which is fine when the design is one replica on SQLite.
@@ -261,6 +272,11 @@ Things that didn't work the first time and why.
 Symptom: `probe_http_status_code 200` and `probe_success 0` for Radicale.
 Root cause: Radicale's built-in server speaks HTTP/1.0 and the chart's default `http_2xx` module only accepts 1.1 and 2.0 (`/probe?debug=true` says "Invalid HTTP version number").
 Fix: a dedicated `http_radicale` module with `HTTP/1.0` in `valid_http_versions`. The general lesson: always run the exporter's debug endpoint before blaming the target.
+
+**Immich wrote its upload tree to the container filesystem on first boot**
+Symptom: pod healthy, `/api/server/ping` fine, but the NFS export stayed empty and `findmnt` in the pod showed `/usr/src/app/upload` on overlayfs.
+Root cause: the official chart mounts the library at `/data` while the v3.2.0 image still defaults to the legacy `/usr/src/app/upload`; two local volumes mounted under the legacy path made it look populated.
+Fix: `IMMICH_MEDIA_LOCATION=/data` and the local mounts moved under `/data`. Immich's folder checks then refused to start until `.immich` markers existed under the new path, which is the feature doing its job. Proof was an upload landing on the NAS as the mapped uid, not a green pod.
 
 **Pausing self-heal on one Application is not a pause**
 Symptom: during a PVC restore, the StatefulSet scaled back to 1 seconds after `scale --replicas=0`, even with `automated` removed from the child Application.
@@ -435,7 +451,7 @@ Lesson: when a service's failure mode couples requests, every probe you add is a
 
 Done since last update: the `homelab-iac` extraction shipped ([public repo](https://github.com/josephbannon-tech/homelab-iac), with cloud-init vendor-data and Pi-hole DNS registration proven end-to-end); Tautulli landed with an L3 library probe and a service-hours Plex SLO (PRs #54/#55); the media pipeline became the estate's first OTLP trace producer (otel-cli, no SDK, strictly fail-open); and the observability methods/runbooks extraction shipped as [homelab-observability](https://github.com/josephbannon-tech/homelab-observability).
 
-Done since then (2026-09-30): Open WebUI, Radicale and pim-tools deployed with backup CronJobs, restore rehearsals and probes; WAN reachability alert rules after a 21-day info-only baseline; Grafana image-renderer token pinned in a SealedSecret.
+Done since then (2026-09-30 / 10-01): Open WebUI, Radicale, pim-tools, Syncthing and Immich deployed with backup CronJobs, restore rehearsals and probes; CloudNativePG as the Postgres operator; PVC capacity alerting; WAN reachability alert rules after a 21-day info-only baseline; Grafana image-renderer token pinned in a SealedSecret.
 
 Still ahead:
 

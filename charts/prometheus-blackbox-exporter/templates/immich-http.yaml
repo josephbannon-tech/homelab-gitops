@@ -1,0 +1,23 @@
+# Immich availability on the NodePort (the phone/browser path).
+# /api/server/ping answers {"res":"pong"} without auth. Info-only until the
+# family uses it (stateful-workload rehearsal first).
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: immich-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-immich
+  interval: 60s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - http://192.168.0.207:30283/api/server/ping
+      labels:
+        role: photos

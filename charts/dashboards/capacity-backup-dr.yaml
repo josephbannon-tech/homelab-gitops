@@ -1684,6 +1684,72 @@ data:
           ]
         },
         {
+          "id": 29,
+          "title": "Immich DB",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Time since the Immich Postgres dump (albums, people, favourites) last landed on the NAS and passed its integrity check. Expected daily \u2014 red at ~50h means photo metadata is unprotected.",
+          "gridPos": {
+            "x": 0,
+            "y": 59,
+            "w": 4,
+            "h": 4
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "dtdurations",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 90000
+                  },
+                  {
+                    "color": "red",
+                    "value": 180000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "clamp_min(time() - backup_last_success_timestamp_seconds{name=\"immich-db-backup\"}, 0)",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ]
+        },
+        {
           "id": 30,
           "title": "Textfile scrape error (any host)",
           "type": "stat",

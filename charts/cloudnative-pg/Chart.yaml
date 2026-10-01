@@ -1,0 +1,8 @@
+apiVersion: v2
+name: cloudnative-pg
+description: CloudNativePG operator. Manages Postgres clusters as CRDs (Cluster, Backup, ScheduledBackup); first consumer is Immich. Wrapper chart, app-of-apps pattern.
+version: 0.1.0
+dependencies:
+  - name: cloudnative-pg
+    version: "0.29.1"
+    repository: https://cloudnative-pg.github.io/charts

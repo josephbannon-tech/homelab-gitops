@@ -48,7 +48,7 @@ jobs:
 
       - name: Lint Helm charts
         run: |
-          for chart in charts/argocd charts/kube-prometheus-stack charts/loki charts/promtail charts/sealed-secrets; do
+          for chart in charts/argocd charts/kube-prometheus-stack charts/loki charts/promtail charts/sealed-secrets charts/cloudnative-pg; do
             echo "--- $chart ---"
             helm dependency update "$chart"
             helm lint "$chart"

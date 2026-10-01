@@ -1,0 +1,19 @@
+cloudnative-pg:
+  # One operator replica on a single-node cluster. The operator is control
+  # plane only: Postgres pods keep running if it restarts.
+  replicaCount: 1
+  # Expose operator metrics to the existing Prometheus (release label
+  # selector). Cluster-level metrics come from each Cluster CR's own
+  # PodMonitor (enabled per cluster, see charts/immich/templates/postgres.yaml).
+  monitoring:
+    podMonitorEnabled: true
+    podMonitorAdditionalLabels:
+      release: kube-prometheus-stack
+    grafanaDashboard:
+      create: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi

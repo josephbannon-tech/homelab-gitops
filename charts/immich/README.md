@@ -1,7 +1,8 @@
-# immich (SCAFFOLD, not deployed)
+# immich
 
-**Status: SCAFFOLD, 2026-09-14.** No `apps/immich.yaml` exists, so the root
-Application does not see this directory. Plan doc: homelab `docs/plans/immich.md`
+**Status: DEPLOYED 2026-10-01** (`apps/immich.yaml`, after `apps/cloudnative-pg.yaml` at
+sync wave -1; scaffolded 2026-09-14). Platform rehearsal complete; the photo import
+waits for the off-site photos tier (B2). Fill list below kept as the decision record. Plan doc: homelab `docs/plans/immich.md`
 (the stateful-workload rehearsal). Standing gate: **Backblaze B2 account** for
 photo-class off-site capacity, an operator action, still open.
 
@@ -44,20 +45,22 @@ Source: `docs/plans/immich.md`, `docs/plans/2026-09-post-window-layout.md`
 
 - [ ] B2 account + bucket + scoped application key (operator). Second restic
       repo (photos tier) on JBNAS01 with heartbeat and `BackupHeartbeatStale`.
-- [ ] Settle the originals pool in `docs/plans/immich.md`; update
-      `templates/library.yaml` path + the NAS dataset/export/UID mapping.
-- [ ] Postgres: choose CNPG vs StatefulSet; add `templates/postgres.yaml`;
-      Sealed Secret `immich-postgres-app`; nightly `pg_dump` CronJob to
-      `JBNAS_SSD/data/backups/immich-db/` with heartbeat; **restore rehearsal
-      is part of done, not a follow-up**.
-- [ ] `helm dependency update` locally (OCI pull), confirm values keys against
-      the pulled chart (`bjw-s common` 5.1.0 conventions), `helm template` clean.
-      Add `charts/immich` to the `helm-lint` loop in `.github/workflows/ci.yaml`.
-- [ ] PVC capacity alert rules for the four PVCs (the pattern the cluster lacks).
-- [ ] ServiceMonitor for `:8081`/`:8082`; verify/decide the trace question.
-- [ ] Pick the NodePort, blackbox probe of `/api/server/ping`,
-      `probe_success=1` verified in Prometheus **before** merge.
-- [ ] `apps/immich.yaml` with `CreateNamespace=true` and, if CNPG, a sync-wave
-      after the operator.
+- [x] Originals pool: `JBNAS_SSD/immich`, NFS export to the node with `mapall=apps` (568).
+- [x] Postgres: CNPG `Cluster` (`templates/postgres.yaml`, `cloudnative-vectorchord:17-0.4.3`); CNPG owns the app Secret; nightly `pg_dump` CronJob with heartbeat; **restore rehearsed 2026-10-01**.
+- [x] Rendered clean; `charts/immich` in the CI helm-lint loop.
+- [x] PVC capacity rules (`pvc-capacity` group in kube-prometheus-stack values). Caveat: local-path series report the node disk, only the NFS claim is per-volume.
+- [x] ServiceMonitor on `:8081`/`:8082` (chart-provided, release label). Traces: none in v3.2, metrics only; the first OTLP trace emitter is pim-tools.
+- [x] NodePort 30283; probe `blackbox-immich` on `/api/server/ping` (verified live).
+- [x] `apps/immich.yaml`, wave 0 after the operator, operator-owned replicas.
 - [ ] Import: Photos-only Takeout, cull screenshots, `immich-go`. Google copy
       stays until the restore rehearsal passes.
+
+## Found at first boot (2026-10-01)
+
+- The chart mounts the library PVC at `/data`, but the v3.2.0 image still
+  defaults to `/usr/src/app/upload`; the first pod wrote its upload tree to the
+  container overlay. Fixed by pinning `IMMICH_MEDIA_LOCATION=/data` and moving
+  the thumbs/encoded-video mounts under `/data`. Never mount anything under the
+  legacy path: a populated one wins.
+- After the move, Immich's folder checks refused to start until `.immich`
+  marker files existed in each `/data/<folder>`; created once by hand.

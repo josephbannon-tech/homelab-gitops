@@ -1,0 +1,50 @@
+# Immich's Postgres as a CloudNativePG Cluster (operator: apps/cloudnative-pg.yaml,
+# sync wave -1). Decided 2026-09-30 over a plain StatefulSet.
+#
+# Image: tensorchord/cloudnative-vectorchord = CNPG's postgresql image plus
+# VectorChord (the chart maintainers' recommendation). Immich v3.2 accepts
+# VectorChord >=0.3 <2 (server/src/constants.ts). PG 17 + vchord 0.4.3.
+# Data on local-path (Immich docs: the DB must never sit on a network share).
+# CNPG creates Secret `immich-postgres-app` (keys username/password) that the
+# server's DB_PASSWORD env references.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-postgres
+  namespace: immich
+spec:
+  instances: 1
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:17-0.4.3
+  primaryUpdateStrategy: unsupervised
+  storage:
+    storageClass: local-path
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  postgresql:
+    shared_preload_libraries:
+      - vchord.so
+    parameters:
+      max_connections: "100"
+      shared_buffers: 256MB
+      effective_cache_size: 768MB
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      # Extensions need a superuser; Immich's migrations then run
+      # CREATE EXTENSION IF NOT EXISTS, which is a no-op once they exist.
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vchord CASCADE;
+        - CREATE EXTENSION IF NOT EXISTS cube;
+        - CREATE EXTENSION IF NOT EXISTS earthdistance;
+        - CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        - CREATE EXTENSION IF NOT EXISTS unaccent;
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - ALTER DATABASE immich OWNER TO immich;
+  monitoring:
+    enablePodMonitor: true

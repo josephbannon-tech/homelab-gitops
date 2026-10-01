@@ -2,10 +2,12 @@
 # start against a missing mount (Immich also fails closed on its own `.immich`
 # marker files; that is a boot-order dependency, not a bug).
 #
-# TODO(fill): the dataset path is the open pool decision (see values.yaml and
-# the plan doc). The NAS side needs: dataset, NFS export to JBK8S01 with the
-# UID mapping sorted up front (the most common Immich-on-NFS complaint), and
-# `BACKUP_LOCATION` (Immich's built-in DB dumps) pointed at the same pool.
+# Pool decided 2026-09-30: dataset JBNAS_SSD/immich (the validated layout; first
+# irreplaceable family data goes on the SSD RAIDZ1 pool). NAS side: dataset
+# owned by apps:apps (568), NFS export to 192.168.0.207 with mapall=apps so
+# whatever uid the pods run as writes as 568 (the usual Immich-on-NFS uid
+# complaint, settled up front). Immich's own nightly DB dumps land in
+# upload/backups on this volume as a second copy of the metadata.
 apiVersion: v1
 kind: PersistentVolume
 metadata:

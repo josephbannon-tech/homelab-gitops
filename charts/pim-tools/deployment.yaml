@@ -26,7 +26,7 @@ spec:
           # Built by github.com/josephbannon-tech/homelab-pim-tools CI (ruff,
           # pytest, Trivy HIGH/CRITICAL gate) and pinned here by digest, so a
           # rebuild never changes what runs without a reviewed commit.
-          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-9081d52307e3580ded782813819419a2d80b93a6@sha256:754df9f59a42f6ef33aef80147d41c258a8c4be8c0411fc82a882386864fea3f
+          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-feaace3ded7f5ff5a562eb0633964619a81a9bba@sha256:a9662b17d32acc65790ae5d59fa730f4a632675e72e9e290861e89cb72893530
           ports:
             - name: http
               containerPort: 8000
@@ -36,6 +36,13 @@ spec:
               value: http://radicale.pim.svc:5232/
             - name: RADICALE_CALENDAR
               value: personal
+            # Traces to the in-cluster OTel Collector (OTLP/HTTP) -> Tempo.
+            # The second OTLP producer on the estate after the NAS media
+            # pipeline, and the first running inside the cluster.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.monitoring.svc:4318
+            - name: OTEL_SERVICE_NAME
+              value: pim-tools
           envFrom:
             - secretRef:
                 name: pim-tools-radicale

@@ -1079,7 +1079,7 @@ kube-prometheus-stack:
                 threshold: "probe_success == 0 for 10m (probe every 60s)"
                 impact: "Open WebUI's fallback model and the phone chat's tool backend are down when the desktop is asleep or in gaming mode. Nothing family-facing depends on it."
                 action: "`curl http://192.168.0.208:8080/health` from JBVM02; `ssh jbannon@192.168.0.208 'systemctl status llama-swap'`; `qm status 108` on JBSRV01. Host doc: docs/jbllm01.md."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/llm-server-tier-down.md"
 
     # WAN reachability. The wan-icmp / wan-http / dns-upstream blackbox probes
     # (charts/prometheus-blackbox-exporter, PR #88) ran info-only from
@@ -1103,7 +1103,7 @@ kube-prometheus-stack:
                 threshold: "both wan-icmp targets probe_success == 0 for 5m (probe every 30s)"
                 impact: "Nothing outside the LAN is reachable: Tailscale remote access, Plex remote streams, Pi-hole upstream lookups once cache TTLs expire. LAN-only services keep working."
                 action: "Hub event log + DOCSIS channel stats at http://192.168.0.1 (unauthenticated). Note the start time from this alert for the ISP record. Runbook: docs/incidents/vm-complaint-C-0807263896.md in the homelab docs."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/wan-reachability.md"
             - alert: WanPartialService
               expr: max(probe_success{job="blackbox-wan-http"}) == 0 and max(probe_success{job="blackbox-wan-icmp"}) == 1
               for: 10m
@@ -1114,7 +1114,7 @@ kube-prometheus-stack:
                 threshold: "wan-http probe_success == 0 and any wan-icmp target == 1, for 10m"
                 impact: "The DOCSIS partial-service fingerprint (2026-07-22): pings pass, TCP/TLS stalls. Web, Tailscale and Plex remote break while a ping test looks fine."
                 action: "Check the hub's DOCSIS channel table for missing/partial upstream channels; run a speed test from JBVM01. If it persists, this is the evidence for a reprovision request."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/wan-reachability.md"
             - alert: UpstreamDnsDown
               expr: max(probe_success{job="blackbox-dns-upstream"}) == 0 and max(probe_success{job="blackbox-wan-icmp"}) == 1
               for: 5m
@@ -1125,7 +1125,7 @@ kube-prometheus-stack:
                 threshold: "both dns-upstream targets probe_success == 0 and wan-icmp up, for 5m"
                 impact: "Pi-hole is answering from cache only; household DNS starts failing name by name as TTLs expire. The pihole-dns SLO will not see it until then."
                 action: "dig @1.1.1.1 google.com from JBVM01; check UDP/53 is not being dropped by the hub (a hub reboot has cleared this before). Pi-hole itself is fine if blackbox-dns-pihole is still 1."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/wan-reachability.md"
 
     # Personal data layer (namespace pim). Radicale holds the family calendar
     # and the shared shopping list; the phones sync every 15 min, so 10m of
@@ -1146,7 +1146,7 @@ kube-prometheus-stack:
                 threshold: "probe_success == 0 for 10m (probe every 60s)"
                 impact: "Phone calendar and task lists stop syncing (DAVx5 / Tasks.org keep their local copy and retry). Shared shopping list edits queue on the device."
                 action: "`kubectl -n pim get pods,svc`; `curl -sI http://192.168.0.207:30232/.web/`; pod logs. Data is on PVC radicale-data; nightly archive in JBNAS01 backups/radicale/. Host doc: docs/jbk8s01.md."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/radicale-down.md"
 
     # PVC capacity (added 2026-10-01 with Immich, the pattern the cluster
     # lacked). Honest scope note: for local-path PVCs kubelet reports the
@@ -1168,7 +1168,7 @@ kube-prometheus-stack:
                 threshold: "> 80% for 30m"
                 impact: "The owning app starts failing writes at 100%: Immich uploads, Loki chunks, SQLite WALs. local-path PVCs share the node data disk, so one full volume takes the others with it."
                 action: "`kubectl -n {{ $labels.namespace }} get pvc {{ $labels.persistentvolumeclaim }}`; for local-path check `df -h /var/lib/rancher/k3s/storage` on JBK8S01 and the Loki/Tempo retention; for the Immich library check the NAS dataset JBNAS_SSD/immich."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pvc-capacity.md"
             - alert: PersistentVolumeFillingUp
               expr: predict_linear(kubelet_volume_stats_available_bytes{job="kubelet"}[6h], 4 * 24 * 3600) < 0 and kubelet_volume_stats_used_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"} > 0.50
               for: 1h
@@ -1179,7 +1179,7 @@ kube-prometheus-stack:
                 threshold: "predict_linear over 6h crosses zero within 4d, and already > 50% used, for 1h"
                 impact: "A bulk import (Immich) or a log burst will hit 100% before the weekly look."
                 action: "Pause the import or raise the budget; see PersistentVolumeUsageHigh."
-                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/README.md"
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pvc-capacity.md"
 
     logging-stack-health:
       groups:

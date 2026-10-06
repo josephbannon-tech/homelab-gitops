@@ -26,7 +26,7 @@ spec:
           # Built by github.com/josephbannon-tech/homelab-pim-tools CI (ruff,
           # pytest, Trivy HIGH/CRITICAL gate) and pinned here by digest, so a
           # rebuild never changes what runs without a reviewed commit.
-          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-feaace3ded7f5ff5a562eb0633964619a81a9bba@sha256:a9662b17d32acc65790ae5d59fa730f4a632675e72e9e290861e89cb72893530
+          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-98d61974d054dfb9b671735683ccfa50aace324f@sha256:b8f0b571795b6cb5af866492be1c5c968ac69db35b617f16a748b8b32a1e10ee
           ports:
             - name: http
               containerPort: 8000
@@ -46,6 +46,12 @@ spec:
           envFrom:
             - secretRef:
                 name: pim-tools-radicale
+            # PIM_TOOLS_TOKEN (v0.3.0): shared-secret bearer required on every
+            # route except /health and /openapi.json, on both the OpenAPI and
+            # the MCP door. Open WebUI's tool-server registration carries it;
+            # so does the MCP client on JBVM02. Trust, not identity.
+            - secretRef:
+                name: pim-tools-token
           resources:
             requests:
               cpu: 10m

@@ -6,14 +6,16 @@ metadata:
   labels:
     app: pim-tools
 spec:
-  # ClusterIP only: the consumer is Open WebUI's backend (in-cluster). The
-  # tools have no auth of their own in v1, so they are not exposed on a
-  # NodePort. Open WebUI Admin -> Tools -> OpenAPI server:
-  #   http://pim-tools.pim.svc:8000  (openapi.json at /openapi.json)
-  type: ClusterIP
+  # NodePort since v0.3.0, when the tools gained a bearer token (SealedSecret
+  # pim-tools-token). Two consumers: Open WebUI's backend in-cluster via
+  # http://pim-tools.pim.svc:8000 (OpenAPI door), and headless Claude Code on
+  # JBVM02 via http://192.168.0.207:30800/mcp (MCP door). LAN/Tailscale only,
+  # no public exposure. v1 was ClusterIP only because it had no auth.
+  type: NodePort
   selector:
     app: pim-tools
   ports:
     - name: http
       port: 8000
       targetPort: 8000
+      nodePort: 30800

@@ -132,10 +132,13 @@ resource "proxmox_virtual_environment_vm" "jbvm01" {
   # an unmirrored OS disk. Contents are in-flight downloads, re-acquirable by
   # definition, so backup = false.
   # discard/ssd are load-bearing on LVM-thin, see scsi0 above.
+  # 2026-10-08: grown 200 -> 500 GB after twelve 4K remuxes queued at once
+  # filled it (one item alone was 209 GB). Thin-provisioned, so the extra
+  # costs nothing until written. Larger batches bypass it (client temp dir off).
   disk {
     datastore_id = "local-lvm-m2"
     interface    = "scsi1"
-    size         = 200
+    size         = 500
     discard      = "on"
     ssd          = true
     iothread     = true

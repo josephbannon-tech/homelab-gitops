@@ -8,7 +8,7 @@ open-webui:
 
   image:
     repository: ghcr.io/open-webui/open-webui
-    tag: "0.11.3"  # chart 16.5.0 appVersion; pinned so Renovate tracks it
+    tag: "v0.12.0"  # chart 16.5.0 appVersion; pinned so Renovate tracks it
 
   # --- Bundled components OFF --------------------------------------------------
   # Models come from the estate llm-router, not an in-cluster Ollama. No

@@ -7,5 +7,5 @@ dependencies:
     # 0.13.2 = appVersion v3.2.0, checked 2026-09-14 (`helm show chart`).
     # The chart does NOT track every Immich release; image.tag is pinned in
     # values.yaml and Renovate bumps both. The old HTTPS repo is gone, OCI only.
-    version: "0.13.2"
+    version: "0.13.4"
     repository: oci://ghcr.io/immich-app/immich-charts

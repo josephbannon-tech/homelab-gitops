@@ -4,5 +4,5 @@ description: Open WebUI, the estate chat app for the local LLM tiers (PWA, chat 
 version: 0.1.0
 dependencies:
   - name: open-webui
-    version: "16.5.0"
+    version: "16.6.0"
     repository: https://helm.openwebui.com/

@@ -4,5 +4,5 @@ description: Sealed Secrets controller for committing encrypted secrets to Git
 version: 0.1.0
 dependencies:
   - name: sealed-secrets
-    version: "2.18.5"
+    version: "2.20.0"
     repository: https://bitnami.github.io/sealed-secrets

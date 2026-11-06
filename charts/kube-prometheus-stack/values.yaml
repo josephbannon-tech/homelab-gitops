@@ -1127,6 +1127,43 @@ kube-prometheus-stack:
                 action: "dig @1.1.1.1 google.com from JBVM01; check UDP/53 is not being dropped by the hub (a hub reboot has cleared this before). Pi-hole itself is fine if blackbox-dns-pihole is still 1."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/wan-reachability.md"
 
+    # WAN latency under load (bufferbloat). Added 2026-11-06 from the
+    # 2026-10-15 postmortem: an uncapped seeder held the 38.5 Mbps uplink for
+    # a week, games and Discord dropped, and every probe stayed green because
+    # reachability is not latency. Baseline of the alert expression at 1-min
+    # resolution (p95 of the wan-icmp probe over 10 min, min of both targets):
+    #   after the 20 Mbps cap (17 Oct to 6 Nov): floor p50 14-18 ms, p95 ~19 ms;
+    #     zero would-be firings in three weeks.
+    #   incident week (9 to 15 Oct): p50 38 ms, 45% of 10-min buckets above
+    #     39 ms, 63 would-be firings totalling 38 h.
+    #   the week before (1 to 8 Oct, seeder already uncapped): 6 firings on
+    #     5, 7 and 8 Oct, none over 40 min; real load from the earlier packs.
+    # 45 ms caught only 5 of the incident's episodes, so 39 ms (3x the 13 ms
+    # floor in the postmortem) stands. The guard clause drops any 10-min
+    # window holding a failed probe: one 5 s timeout makes the p95
+    # meaningless, and that is WanDown's territory. keep_firing_for merges
+    # the incident week's flapping (246 raw episodes) into a few long alerts.
+    wan-latency:
+      groups:
+        - name: wan.latency
+          rules:
+            - record: wan:icmp_probe_duration_seconds:p95_10m
+              expr: quantile_over_time(0.95, probe_duration_seconds{job="blackbox-wan-icmp"}[10m])
+            - alert: WanBufferbloat
+              expr: |
+                min(wan:icmp_probe_duration_seconds:p95_10m) > 0.039
+                and min(min_over_time(probe_success{job="blackbox-wan-icmp"}[10m])) == 1
+              for: 15m
+              keep_firing_for: 30m
+              labels: {severity: warning, service: wan}
+              annotations:
+                summary: "WAN latency under load: p95 ICMP RTT to both resolvers {{ $value | humanizeDuration }} for 15m (idle floor ~15 ms), probes still passing"
+                host: "Virgin Media hub (192.168.0.1) uplink, 38.5 Mbps"
+                threshold: "min over both wan-icmp targets of the 10m p95 probe duration > 39 ms for 15m, with no failed probe in the window"
+                impact: "Bufferbloat on the uplink: Discord, game sessions and Tailscale feel broken while every reachability probe stays green (the 2026-10-09 to 10-15 week). Plex remote streams buffer."
+                action: "First `rate(node_network_transmit_bytes_total{hostname=\"JBSRV01\",device=\"nic0\"}[1m])*8/1e6`: above ~19 Mbps sustained means a bulk uploader on the estate (qBittorrent on JBVM01 is capped at 20 Mbps, check `up_limit`; off-site backups, Syncthing, Immich). If nic0 is idle the queue is upstream of us: hub DOCSIS snapshot (scripts/hub-docsis-snapshot.sh) and reopen with the ISP."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/wan-bufferbloat.md"
+
     # Personal data layer (namespace pim). Radicale holds the family calendar
     # and the shared shopping list; the phones sync every 15 min, so 10m of
     # probe failure is a real outage, not a blip. Info-only baseline skipped:

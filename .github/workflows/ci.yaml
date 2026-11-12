@@ -14,7 +14,7 @@ jobs:
     name: YAML lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: pip install yamllint
       - run: yamllint -c .yamllint.yaml .
 
@@ -22,7 +22,7 @@ jobs:
     name: Dashboard generator is source of truth
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Regenerate dashboards and fail on drift
         run: |
           python3 charts/dashboards/gen-dashboards.py
@@ -36,7 +36,7 @@ jobs:
     name: Helm lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: azure/setup-helm@v5
 

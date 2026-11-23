@@ -368,6 +368,22 @@ resource "proxmox_virtual_environment_vm" "jbk8s01" {
     ssd          = true
   }
 
+  # Image-store disk (added 2026-11-23): mounted in-guest at
+  # /var/lib/rancher/k3s/agent/containerd. On 2026-11-12 a batch of ten image
+  # bumps pulled new images next to the old ones and took the 40 G OS disk to
+  # the kubelet eviction threshold (DiskPressure for five minutes). A dedicated
+  # filesystem gives the kubelet a separate imagefs: image growth can no longer
+  # pressure the OS disk or the PV disk, and headroom before eviction goes
+  # from about 10 G to about 35 G. Hot-plugged; the in-guest move is a short
+  # full-cluster stop.
+  disk {
+    datastore_id = "local-lvm-m2"
+    interface    = "scsi2"
+    size         = 60
+    discard      = "on"
+    ssd          = true
+  }
+
   network_device = [{
     bridge       = "vmbr0"
     model        = "virtio"

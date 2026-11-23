@@ -471,17 +471,28 @@ kube-prometheus-stack:
                 impact: "Drive {{ $labels.device }} ({{ $labels.model_name }}) shows real media wear or damage. Left unattended this trends toward drive failure and data loss."
                 action: "Run `smartctl -a /dev/{{ $labels.device }}` on JBSRV01 to confirm the trend before planning replacement."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/smart-drive-warning.md"
+            # Threshold is relative to the drive's own vendor threshold, not a
+            # fixed number. Until 2026-11-23 this was `value < 5`, but the SK
+            # hynix SC308 reports SSD_Life_Left with a vendor pre-fail
+            # threshold of 10: the drive would have flipped SMART status at 10
+            # and fired the critical SmartDriveStatusFailed long before this
+            # warning could (found with the drive at 12). A warning has to
+            # fire before the thing it warns about. Attributes with a vendor
+            # threshold of 0 keep the old behaviour (fires at 5 and below).
             - alert: SmartSsdLifeLeftLow
-              expr: smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"} < 5
+              expr: |
+                smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="value"}
+                  <= ignoring(attribute_value_type)
+                (smartctl_device_attribute{attribute_name=~"SSD_Life_Left|Percent_Lifetime_Remain|Media_Wearout_Indicator",attribute_value_type="thresh"} + 5)
               for: 1h
               labels: {severity: warning, service: storage}
               annotations:
                 summary: "SSD {{ $labels.device }} wear at {{ $value }}% life remaining"
                 host: "JBSRV01 (192.168.0.200)"
                 value: "{{ $value }}% life remaining"
-                threshold: "below 5% life remaining, sustained 1h"
+                threshold: "within 5 points of the drive's own vendor threshold for {{ $labels.attribute_name }}, sustained 1h"
                 impact: "SSD {{ $labels.device }} ({{ $labels.model_name }}) is near end of life. Once it crosses the manufacturer threshold the critical SmartDriveStatusFailed alert fires."
-                action: "Plan replacement of {{ $labels.device }} on JBSRV01; identify which pool or VM uses it first."
+                action: "Order the replacement now and plan an online swap of {{ $labels.device }} on JBSRV01; identify which pool or VM uses it first. This alert stays firing until the drive is replaced."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/smart-drive-warning.md"
             - alert: SmartDriveStatusFailed
               expr: smartctl_device_smart_status == 0
@@ -946,8 +957,17 @@ kube-prometheus-stack:
             # this is 01:00–05:00 UTC = 02:00–06:00 BST / 01:00–05:00 GMT. The
             # 4h UTC span deliberately covers the observed 02:00–05:00 reboot
             # cluster in both DST states; widen here if reboots drift.
+            #
+            # 2026-11-23: window CLOSED (constant 0). The nightly reboot it was
+            # built for stopped: the Shield had been up 32 days, and 30 days of
+            # probe history show 1 failed minute inside 01:00-05:00 UTC against
+            # 9 outside it, with no 3-minute hard-down at all. The gate was
+            # muting both reachability alerts for four hours a night with
+            # nothing left to excuse. Kept as a recording rule so the alerts
+            # and the service-hours SLO below need no change; to reopen it,
+            # restore: (hour() >= bool 1) * (hour() < bool 5)
             - record: plex:maintenance_window
-              expr: (hour() >= bool 1) * (hour() < bool 5)
+              expr: vector(0)
 
             # Hysteresis: hard_down = no successful /identity probe for a full
             # 3 minutes. This is the trustworthy "Plex is actually down" signal
@@ -989,7 +1009,7 @@ kube-prometheus-stack:
                 summary: "Plex unreachable (blackbox http probe to 192.168.0.202:32400/identity)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (1h window)"
-                threshold: "fast burn >14.4x, sustained 2m (suppressed 02:00–06:00 BST maintenance window)"
+                threshold: "fast burn >14.4x, sustained 2m (maintenance window closed since 2026-11-23: fires at any hour)"
                 impact: "Real user-facing Plex is failing — family devices cannot reach the media server. This is the household-impacting signal, independent of the plex-exporter scrape."
                 action: "1) `curl -sf http://192.168.0.202:32400/identity` from another host; 2) check the Shield is powered on and on the network; 3) check Plex Media Server on the Shield; 4) if PMS is up but erroring, check the JBNAS01 SMB media share."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-reachability-burn.md"
@@ -1001,7 +1021,7 @@ kube-prometheus-stack:
                 summary: "Plex reachability degraded (blackbox http probe to 192.168.0.202:32400/identity)"
                 host: "NvidiaShield (192.168.0.202:32400)"
                 value: "{{ $value | printf \"%.1f\" }}x error-budget burn rate (6h window)"
-                threshold: "slow burn >6x, sustained 15m (suppressed 02:00–06:00 BST maintenance window)"
+                threshold: "slow burn >6x, sustained 15m (maintenance window closed since 2026-11-23: fires at any hour)"
                 impact: "Real user-facing Plex has been intermittently unreachable over 6h; family sessions are likely affected."
                 action: "Check the Shield host, the network path to it, and PMS stability; correlate with the JBNAS01 SMB media share."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/plex-reachability-burn.md"

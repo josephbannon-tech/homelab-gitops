@@ -196,6 +196,14 @@ kube-prometheus-stack:
   # node-exporter runs as a DaemonSet — picks up host metrics automatically
   prometheus-node-exporter:
     enabled: true
+    # Textfile collector for the k3s node itself. The host-state script on
+    # JBK8S01 writes to /var/lib/node_exporter/textfile_collector, which the
+    # pod sees through its read-only root mount. extraArgs replaces the chart
+    # default list, so the two filesystem excludes are repeated here unchanged.
+    extraArgs:
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+      - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile_collector
 
   # k3s embeds these components — they don't expose standard metrics ports.
   # Disable to prevent false-positive "Down" alerts.
@@ -708,6 +716,107 @@ kube-prometheus-stack:
                 impact: "The weekly disk sweep on JBVM02 has stopped; disk hygiene will drift and the root filesystem can fill unnoticed again."
                 action: "Check `systemctl status jbvm02-maintenance.timer` on JBVM02."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm02-maintenance-stale.md"
+
+    # Host state. One script per host writes a small textfile every 5 minutes
+    # (reboot pending, failed systemd units, Promtail's sent-entries counter,
+    # its own last-run time); a second on the DNS host writes Pi-hole adlist
+    # status hourly. Added 2026-11-24 after a docs audit, not an alert, found
+    # five hosts with a pending reboot, a unit that had failed nightly for
+    # three months, and five adlists dead upstream for four.
+    # A textfile script was chosen over node_exporter's systemd collector: the
+    # collector emits five series per unit to answer a question that needs one
+    # per failed unit, and it needs D-Bus, which the in-cluster exporter lacks.
+    host-state:
+      groups:
+        - name: host.state.alerts
+          rules:
+            # The clock is the flag's own age, not a 7d `for:`, so it survives
+            # a Prometheus restart.
+            - alert: HostRebootPending
+              expr: |
+                homelab_reboot_required == 1
+                and on (instance)
+                (time() - homelab_reboot_required_since_seconds > 604800)
+              for: 1h
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "{{ $labels.hostname }} has needed a reboot for more than 7 days"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "reboot flag or newer kernel on disk, older than 7 days"
+                threshold: "reboot pending > 7 days"
+                impact: "The host runs a kernel or libraries with fixes already installed but not active. Nothing is broken yet; the exposure grows with every week."
+                action: "Plan a reboot of {{ $labels.hostname }} with the pre-flight checklist. `cat /var/run/reboot-required.pkgs` names the packages."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/host-reboot-pending.md"
+            - alert: SystemdUnitFailed
+              expr: homelab_systemd_unit_failed == 1
+              for: 15m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "{{ $labels.unit }} is failed on {{ $labels.hostname }}"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "unit in the failed state"
+                threshold: "failed for 15m"
+                impact: "Whatever {{ $labels.unit }} does on {{ $labels.hostname }} is not happening. A timer-driven unit will fail again on its next run."
+                action: "`systemctl status {{ $labels.unit }}` and `journalctl -u {{ $labels.unit }} -n 50` on {{ $labels.hostname }}. Fix the cause, then `systemctl reset-failed {{ $labels.unit }}`."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/systemd-unit-failed.md"
+            # Two cases: the counter stopped moving, or Promtail does not
+            # answer at all (the script then writes no counter). The script
+            # logs one journal line per run, so a healthy host always has
+            # something to ship.
+            - alert: PromtailNotShipping
+              expr: |
+                increase(homelab_promtail_sent_entries_total[30m]) == 0
+                or
+                (homelab_host_state_last_run_timestamp_seconds
+                  unless on (instance) homelab_promtail_sent_entries_total)
+              for: 30m
+              labels: {severity: warning, service: promtail}
+              annotations:
+                summary: "Promtail on {{ $labels.hostname }} has shipped no log entries for 30 minutes"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "sent-entries counter flat or absent"
+                threshold: "no entries sent in 30m, sustained 30m"
+                impact: "Logs from {{ $labels.hostname }} are not reaching Loki. The next incident on that host will have no log evidence."
+                action: "On {{ $labels.hostname }}: `systemctl status promtail`, then `curl -s localhost:9080/metrics | grep promtail_sent_entries_total`. A running Promtail that sends nothing is usually a missing group (systemd-journal, adm)."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/promtail-not-shipping.md"
+            # Watches the watchers: a script that stopped leaves its last file
+            # exporting forever, and a host that was never enrolled exports
+            # nothing. Third branch covers the adlist script.
+            - alert: HostStateStale
+              expr: |
+                time() - homelab_host_state_last_run_timestamp_seconds > 1800
+                or
+                (up{job=~"node-exporter(-external)?"} == 1
+                  unless on (instance) homelab_host_state_last_run_timestamp_seconds)
+                or
+                time() - pihole_adlist_last_run_timestamp_seconds > 10800
+              for: 15m
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "Host-state metrics from {{ $labels.hostname }} are stale or missing"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "host-state or adlist textfile not refreshed"
+                threshold: "host-state older than 30m, adlist older than 3h, or never written"
+                impact: "Reboot, failed-unit, Promtail and adlist alerts for {{ $labels.hostname }} are blind until the script runs again."
+                action: "On {{ $labels.hostname }}: `systemctl status host-state-textfile.timer` (TrueNAS: the cron job; DNS host: root's crontab for the adlist script). A new host needs the script installed."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/host-state-stale.md"
+            # status 3 = upstream unavailable, served from the local cache;
+            # 4 = unavailable with no cache. min_over_time means every sample
+            # in the week was bad, about two failed weekly gravity runs.
+            # Backtest: would have fired on 2026-08-02; the lists were found
+            # by accident on 2026-11-23.
+            - alert: PiholeAdlistStale
+              expr: min_over_time(pihole_adlist_status[7d]) >= 3
+              for: 1h
+              labels: {severity: warning, service: pihole}
+              annotations:
+                summary: "Pi-hole adlist {{ $labels.name }} has failed to download for 7 days"
+                host: "{{ $labels.hostname }} ({{ $labels.instance }})"
+                value: "adlist status {{ $value }} (3 = served from cache, 4 = no cache)"
+                threshold: "status >= 3 for every sample in 7 days"
+                impact: "Blocking still works from the cached copy, so nothing looks wrong. The list is frozen, and the cache is lost on the next Pi-hole update."
+                action: "Open the list URL. If it moved, repoint it in Pi-hole and run `pihole -g`; if it is gone for good, disable the list."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/pihole-adlist-stale.md"
 
     # Backup heartbeat staleness. Each backup script writes
     # backup_last_success_timestamp_seconds{name="..."} via the node_exporter

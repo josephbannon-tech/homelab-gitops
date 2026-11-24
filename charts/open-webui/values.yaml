@@ -54,7 +54,8 @@ open-webui:
       - ReadWriteOnce
 
   # --- Exposure: NodePort on the LAN, reachable over the tailnet via the subnet
-  # router. Never public. PWA install = browse + Add to Home Screen.
+  # router. Never public. The phone installs it as an app over HTTPS, through a
+  # `tailscale serve` front on another host: Android will not install from HTTP.
   service:
     type: NodePort
     port: 80
@@ -88,8 +89,27 @@ open-webui:
       value: "true"
     - name: DEFAULT_USER_ROLE
       value: "pending"
+    # Shown in the browser title as "Calcifer (Open WebUI)": the app appends
+    # the suffix to any custom name.
     - name: WEBUI_NAME
-      value: "Homelab Chat"
+      value: "Calcifer"
+    # The install manifest (name and icon of the phone app). Read from the
+    # environment on every boot, not persisted in the DB. The pod fetches its
+    # own copy, mounted from the calcifer-branding ConfigMap below.
+    - name: EXTERNAL_PWA_MANIFEST_URL
+      value: "http://localhost:8080/static/calcifer/manifest.json"
+
+  # --- Phone-app identity (templates/calcifer-branding.yaml) ---------------------
+  # A folder inside the static directory, served at /static/calcifer/.
+  volumes:
+    - name: calcifer-branding
+      configMap:
+        name: calcifer-branding
+  volumeMounts:
+    container:
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/calcifer
+        readOnly: true
 
 # --- Nightly backup to the NAS (templates/backup-cronjob.yaml) ------------------
 # 02:30 Europe/London: after JBNAS01 config (02:15), before the off-site seed

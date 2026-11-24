@@ -1210,6 +1210,26 @@ kube-prometheus-stack:
                 action: "`curl http://192.168.0.208:8080/health` from JBVM02; `ssh jbannon@192.168.0.208 'systemctl status llama-swap'`; `qm status 108` on JBSRV01. Host doc: docs/jbllm01.md."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/llm-server-tier-down.md"
 
+    # Game servers without an SLO of their own. Satisfactory is probed through
+    # its HTTPS API HealthCheck (charts/prometheus-blackbox-exporter,
+    # satisfactory-http). 15m rides out a server restart or a game update.
+    game-servers:
+      groups:
+        - name: game.server.alerts
+          rules:
+            - alert: SatisfactoryDown
+              expr: probe_success{job="blackbox-satisfactory"} == 0
+              for: 15m
+              labels: {severity: warning, service: satisfactory}
+              annotations:
+                summary: "Satisfactory server is not answering its health check"
+                host: "JBVM04 (192.168.0.70)"
+                value: "probe_success = 0"
+                threshold: "HealthCheck failing for 15m (probe every 60s)"
+                impact: "Nobody can join the Satisfactory world. The save is not at risk: the nightly archive is independent of the server process."
+                action: "On JBVM04: `systemctl status satisfactory`, `journalctl -u satisfactory -n 50`. Ports 7777 (UDP and TCP) and 8888 (TCP) must both be listening."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/satisfactory-down.md"
+
     # WAN reachability. The wan-icmp / wan-http / dns-upstream blackbox probes
     # (charts/prometheus-blackbox-exporter, PR #88) ran info-only from
     # 2026-09-09; 21-day baseline to 2026-09-30: 99.96-99.997% per target and

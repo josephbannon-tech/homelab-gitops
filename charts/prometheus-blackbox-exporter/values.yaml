@@ -61,6 +61,25 @@ prometheus-blackbox-exporter:
           # load (the false-alarm pattern that fired PlexErrorBudgetBurnFast).
           fail_if_body_not_matches_regexp:
             - "machineIdentifier"
+      http_satisfactory:
+        # Satisfactory dedicated server (JBVM04). The game speaks UDP, which a
+        # probe cannot judge, but the server's HTTPS API on the same port
+        # answers an unauthenticated HealthCheck with {"health":"healthy"} (or
+        # "slow" when the tick rate drops). That is the server process itself
+        # saying it is serving, not a port being open. Self-signed certificate,
+        # so verification is off; the body match is the assertion.
+        prober: http
+        timeout: 10s
+        http:
+          method: POST
+          preferred_ip_protocol: ip4
+          headers:
+            Content-Type: application/json
+          body: '{"function":"HealthCheck","data":{"clientCustomData":""}}'
+          tls_config:
+            insecure_skip_verify: true
+          fail_if_body_not_matches_regexp:
+            - '"health":"(healthy|slow)"'
       icmp:
         # L3 liveness of the Shield (192.168.0.202) itself, distinct from the
         # L7 http_plex probe. Together they classify a Plex outage without

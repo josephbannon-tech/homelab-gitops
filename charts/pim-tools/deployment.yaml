@@ -26,7 +26,7 @@ spec:
           # Built by github.com/josephbannon-tech/homelab-pim-tools CI (ruff,
           # pytest, Trivy HIGH/CRITICAL gate) and pinned here by digest, so a
           # rebuild never changes what runs without a reviewed commit.
-          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-50890e1b76af1c609b4017ad5b09dc4a0d67743f@sha256:c04785fcc2a4b1a2af35950966d489d887abb4c8df52dc737ebb1ea6432b0ab5
+          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-044f2a1b905802cc8361ab354d36cd4af2588c42@sha256:c3ee743c3930abd0772e9625a1765019b2ae2a7403f832cb15c30a13f21f45d4
           ports:
             - name: http
               containerPort: 8000
@@ -40,6 +40,11 @@ spec:
             # apart from appointments, and list_events reads them on request.
             - name: RADICALE_EXTRA_CALENDARS
               value: routine
+            # Task lists holding repeating jobs. A job ticked on a phone goes
+            # straight to Radicale, so a background pass (every 300 s by
+            # default) finds it and schedules its next turn.
+            - name: PIM_SWEEP_LISTS
+              value: chores
             # Traces to the in-cluster OTel Collector (OTLP/HTTP) -> Tempo.
             # The second OTLP producer on the estate after the NAS media
             # pipeline, and the first running inside the cluster.

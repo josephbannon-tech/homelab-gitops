@@ -13,30 +13,37 @@ Two companion repos extract focused pieces of this estate: [homelab-observabilit
 ```mermaid
 graph TB
     github["homelab-gitops\ngithub.com"]
+    phone["Phone\nDAVx5 · Tasks.org · chat PWA"]
+    shield["NVIDIA Shield\nPlex Media Server"]
 
     subgraph host["JBSRV01 · Proxmox VE · Ryzen 7 2700X / 128 GB DDR4"]
         dns["JBDNS01\nPi-hole v6 LXC\nDNS · DHCP · Tailscale router/exit-node"]
-        nas["JBNAS01\nTrueNAS SCALE\nRAIDZ1 SSD + HDD stripe"]
+        nas["JBNAS01\nTrueNAS SCALE\ntwo RAIDZ1 pools: SSD + HDD"]
         vm01["JBVM01\nDesktop / jump box\nRDP · SMB dropbox"]
-        vm02["JBVM02\nOperations origin\nClaude Code / SSH hub"]
+        vm02["JBVM02\nOperations origin\nLLM router · chat brain\n(headless Claude Code)"]
         vm03["JBVM03\nProd application\nserver"]
+        vm04["JBVM04\nApplication\nserver LXC"]
+        llm["JBLLM01\nCPU LLM server\nllama.cpp"]
 
         subgraph k8s["JBK8S01 · k3s"]
             argocd["ArgoCD\nGitOps controller"]
+            sealed["Sealed Secrets"]
             prom["Prometheus\n+ Alertmanager"]
             grafana["Grafana"]
             pve_exp["PVE Exporter"]
-            blackbox["Blackbox Exporter\nDNS SLI probe"]
+            blackbox["Blackbox Exporter\nDNS + HTTP SLI probes"]
+            exporters["Service exporters\nPi-hole · Plex · Tautulli"]
             loki["Loki\nlog aggregation"]
             promtail["Promtail\nlog shipper"]
             tempo["Tempo\ntrace storage"]
             otel["OTel Collector\nOTLP gateway"]
             owui["Open WebUI\nchat front end (PWA)"]
-            radicale["Radicale\nCalDAV / tasks"]
-            pim["pim-tools\nOpenAPI tool server"]
+            radicale["Radicale\nCalDAV calendars + tasks"]
+            pim["pim-tools\ntool server: OpenAPI + MCP"]
             syncthing["Syncthing\nvault peer"]
             cnpg["CloudNativePG\nPostgres operator"]
             immich["Immich\nphoto library"]
+            tautulli["Tautulli\nPlex activity"]
         end
     end
 
@@ -45,14 +52,24 @@ graph TB
 
     github -->|"git poll"| argocd
     argocd --> k8s
-    owui -->|"tool calls"| pim
+    phone -->|"chat"| owui
+    phone -->|"CalDAV sync"| radicale
+    owui -->|"chat completions"| vm02
+    vm02 -->|"MCP tool calls"| pim
+    vm02 -->|"local models"| llm
     pim -->|"CalDAV"| radicale
+    pim -->|"OTLP"| otel
     cnpg -->|"Cluster CR"| immich
     immich -->|"NFS originals"| nas
+    tautulli --> shield
+    exporters --> dns
+    exporters --> shield
     prom -->|"node_exporter"| nas
     prom -->|"node_exporter"| vm01
     prom -->|"node_exporter"| vm02
     prom -->|"node_exporter"| vm03
+    prom -->|"node_exporter"| vm04
+    prom -->|"node_exporter"| llm
     prom -->|"node_exporter"| dns
     pve_exp --> host
     blackbox -->|"DNS probe :53/udp"| dns
@@ -63,6 +80,7 @@ graph TB
     promtail -->|"push logs"| loki
     prom -->|"webhook"| discord
     dns <-->|"subnet router"| tailscale
+    phone <-->|"remote access"| tailscale
 ```
 
 ---
@@ -72,14 +90,16 @@ graph TB
 | Host | Role | OS | Resources |
 |------|------|----|-----------|
 | JBSRV01 | Proxmox hypervisor | Proxmox VE (Debian) | Ryzen 7 2700X · 128 GB DDR4 |
-| JBDNS01 | Pi-hole DNS + DHCP + Tailscale | Debian 12 LXC | 2 vCPU · 512 MB |
-| JBNAS01 | TrueNAS SCALE NAS | TrueNAS SCALE 25.04 | 4 vCPU · 12 GB · RAIDZ1 SSD + HDD stripe |
-| JBK8S01 | k3s cluster | Ubuntu 24.04 | 4 vCPU · 8 GB · 40 GB |
-| JBVM01 | Jump box / desktop | Debian 13 | 2 vCPU · 2 GB |
-| JBVM02 | Operations origin | Ubuntu 24.04 | 2 vCPU · 8 GB |
+| JBDNS01 | Pi-hole DNS + DHCP + Tailscale | Debian 12 LXC | 4 vCPU · 1 GB |
+| JBNAS01 | TrueNAS SCALE NAS | TrueNAS SCALE 25.10 | 4 vCPU · 12 GB · two 4-wide RAIDZ1 pools (SSD, HDD) |
+| JBK8S01 | k3s cluster | Ubuntu 24.04 | 4 vCPU · 16 GB |
+| JBVM01 | Jump box / desktop | Debian 13 | 2 vCPU · 4 GB |
+| JBVM02 | Operations origin, LLM router, chat brain | Ubuntu 24.04 | 2 vCPU · 12 GB |
 | JBVM03 | Production application server | Ubuntu 24.04 | 6 vCPU · 14 GB |
+| JBVM04 | Application server | Debian 13 LXC | 4 vCPU · 12 GB |
+| JBLLM01 | CPU LLM server (llama.cpp) | Debian 13 | 12 vCPU · 32 GB |
 
-Total guest allocation: 19 vCPU on a 16-thread host, a mild overcommit (see [Design Decisions](#design-decisions)).
+Total guest allocation: 38 vCPU on a 16-thread host, a deliberate overcommit (see [Design Decisions](#design-decisions)). Plex runs outside the hypervisor, on an NVIDIA Shield.
 
 ---
 
@@ -173,7 +193,7 @@ The most interesting outcome of this phase wasn't the SLOs themselves but the da
 | IaC | OpenTofu + bpg/proxmox | VM/LXC definitions in `tofu/`; existing infra imported into state; state kept locally on JBVM02 (gitignored) |
 | DNS + DHCP | Pi-hole v6 (LXC) | Network-wide ad-blocking + DHCP takeover; Virgin Media Hub's DHCP disabled entirely; LXC keeps footprint minimal |
 | Off-network access | Tailscale | Mesh VPN; single subnet router on JBDNS01 exposes the full LAN without port forwarding or per-host installation |
-| NAS | TrueNAS SCALE | ZFS for data integrity and snapshots; two-pool design maps durability requirements to hardware (RAIDZ1 for data, stripe for media) |
+| NAS | TrueNAS SCALE | ZFS for data integrity and snapshots; two pools keep fast SSD for data and backups apart from bulk HDD for media; both RAIDZ1 |
 | Container orchestration | k3s | Production Kubernetes API surface without kubeadm complexity; includes Traefik, CoreDNS, and metrics-server |
 | GitOps | ArgoCD | Declarative cluster state from Git; self-managing via App of Apps; automated sync + prune + selfHeal on every push |
 | Dependency updates | Renovate | Weekly automated PRs for Helm chart version bumps; `managerFilePatterns` targets `charts/.+/values.yaml` |
@@ -190,12 +210,12 @@ The most interesting outcome of this phase wasn't the SLOs themselves but the da
 | Distributed tracing | Grafana Tempo (SingleBinary) | Trace storage with 7-day retention on a local-path PV; receives from OTel Collector; wired to Grafana with trace-to-logs and trace-to-metrics correlation |
 | Trace pipeline | OpenTelemetry Collector | Vendor-neutral OTLP gateway; receives traces over gRPC (:4317) and HTTP (:4318), forwards to Tempo; decouples instrumented services from the backend |
 | CI | GitHub Actions | Helm lint, YAML validation and a dashboard-generator drift check on every PR |
-| Chat front end | Open WebUI | Installable PWA over the estate's local LLM tiers via an LLM router; single replica on SQLite with a nightly backup CronJob whose heartbeat is written by the NAS only after the archive verifies |
+| Chat front end | Open WebUI | Installable PWA; chat turns go to JBVM02, where a small OpenAI-shaped shim fronts headless Claude Code (the brain that calls the tools) and an LLM router fronts the local llama.cpp tiers; single replica on SQLite with a nightly backup CronJob whose heartbeat is written by the NAS only after the archive verifies |
 | Personal data store | Radicale | CalDAV/VTODO server so calendar and task lists live in a standard format the phones read natively (DAVx5, Tasks.org); the chat is a second door onto the same data, never the only one |
 | File vault | Syncthing | Always-on peer holding a full replica of the notes/documents vault; global discovery, relays and NAT traversal off so nothing leaves the estate; identity + vault backed up nightly |
 | Postgres operator | CloudNativePG | Declarative Postgres (`Cluster` CRs) with bootstrap SQL, PodMonitors and backup CRDs; chosen over a hand-rolled StatefulSet because it is the pattern a platform team runs |
 | Photo library | Immich | The stateful-workload rehearsal: CNPG Postgres with VectorChord, originals on an NFS static PV from the NAS, thumbnails and ML cache on local NVMe, nightly `pg_dump` with a rehearsed restore, PVC capacity alerting |
-| LLM tool server | [pim-tools](https://github.com/josephbannon-tech/homelab-pim-tools) | Deterministic, idempotent tools over Radicale registered in Open WebUI as an OpenAPI tool server; image built in that repo's CI (ruff, pytest, Trivy gate) and pinned here by digest |
+| LLM tool server | [pim-tools](https://github.com/josephbannon-tech/homelab-pim-tools) | Deterministic, idempotent tools over Radicale, served as OpenAPI and MCP; the chat brain calls them over MCP; image built in that repo's CI (ruff, pytest, Trivy gate) and pinned here by digest |
 
 ---
 
@@ -234,11 +254,11 @@ A root Application at `bootstrap/root-app.yaml` watches the `apps/` directory. A
 **Sealed Secrets for in-Git credentials**
 The Alertmanager Discord webhook URL and Proxmox API token live in `charts/secrets/` as `SealedSecret` CRDs. The Bitnami Sealed Secrets controller decrypts them in-cluster using a master key that never leaves the cluster. The encrypted blobs are useless without that key, so committing them is safe even on a public repo. Cluster rebuild now requires only the master key restore (one secret) instead of recreating every credential by hand. The master key is itself a critical out-of-Git artefact and is backed up off the cluster.
 
-**vCPU overcommit: 19 vCPU on a 16-thread host**
-JBVM03 (6 vCPU) and the k8s observability stack (4 vCPU) have non-overlapping peak windows. The application's CPU-intensive periods don't coincide with Prometheus scrape and Grafana query load. The overcommit is monitored via the PVE Exporter dashboard.
+**vCPU overcommit: 38 vCPU on a 16-thread host**
+The ratio is about 2.4 to 1, and most of the jump from the original 19 is one guest: the CPU LLM server has 12 vCPU because token generation scales with threads, and it is idle unless a prompt is running. It carries half the default CPU weight (`cpu.units = 50`), so a generation burst yields to the application servers and k3s under contention instead of competing with them. That is a priority, not a cap: an idle host still gives the model every thread. The remaining guests have peaks that do not coincide. The overcommit is watched on the PVE Exporter dashboard.
 
 **Two-pool NAS design**
-`JBNAS_SSD` (RAIDZ1, 3x 512 GB SSD) holds general data and project backups; redundancy matters here. `JBNAS_MEDIA` (stripe, 4x HDD) holds the Plex media library; media is re-acquirable, so full capacity at the cost of redundancy is the right call. Different durability requirements, different ZFS topologies.
+`JBNAS_SSD` (RAIDZ1, 4 SSDs) holds general data and project backups. `JBNAS_MEDIA` (RAIDZ1, 4 HDDs) holds the media library. The media pool began as a stripe, on the reasoning that media is re-acquirable and capacity mattered more than redundancy. That was wrong in practice: one quietly failing member did not just risk the data, it hung the HBA under sustained reads and took the whole NAS VM down with it, repeatedly, with SMART reporting clean throughout. The pool was rebuilt as RAIDZ1, and both pools were later widened from three disks to four with RAIDZ expansion. Re-acquirable data still needs a pool that stays up.
 
 **Write-only SMB drop pattern**
 The jump box mounts the Media share as a restricted identity (`jbannon`) with POSIX ACLs granting `write+execute` on `_inbox/{movies,tv}/` only; it cannot read, list, or overwrite the live library. A cron-driven mover uses atomic renames within the same ZFS dataset to sweep files into `Movies/`/`TV/`, so Plex never sees a partial file. A 100 GB per-user ZFS quota bounds exposure if the jump box identity is compromised.

@@ -1,0 +1,23 @@
+# Satisfactory dedicated server availability (JBVM04). POSTs the server API's
+# HealthCheck function (module http_satisfactory in values.yaml) every 60s.
+# Until 2026-11 the only signal for this host was its save-backup heartbeat,
+# which says the files exist, not that anyone can join. SatisfactoryDown
+# (kube-prometheus-stack values.yaml, game-servers group) fires after 15m.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: satisfactory-http
+  namespace: monitoring
+  labels:
+    app: prometheus-blackbox-exporter
+    release: kube-prometheus-stack
+spec:
+  jobName: blackbox-satisfactory
+  interval: 60s
+  module: http_satisfactory
+  prober:
+    url: prometheus-blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - https://192.168.0.70:7777/api/v1

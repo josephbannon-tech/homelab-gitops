@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 1040" width="1680" height="1040" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs><marker id="a2563eb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0 0l10 5-10 5z" fill="#2563eb"/></marker><marker id="a16a34a" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0 0l10 5-10 5z" fill="#16a34a"/></marker><marker id="ad97706" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0 0l10 5-10 5z" fill="#d97706"/></marker><marker id="adc2626" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0 0l10 5-10 5z" fill="#dc2626"/></marker></defs>
+<rect width="1680" height="1040" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<path d="M40 36h238l22 24-22 24h-238l22-24z" fill="#0f172a"/>
+<circle cx="86" cy="60" r="13" fill="#fff"/>
+<text x="86" y="65.5" font-size="15" font-weight="800" fill="#0f172a" text-anchor="middle">1</text>
+<text x="110" y="66" font-size="17" font-weight="700" fill="#fff" text-anchor="start">Source</text>
+<path d="M350 36h298l22 24-22 24h-298l22-24z" fill="#0f172a"/>
+<circle cx="396" cy="60" r="13" fill="#fff"/>
+<text x="396" y="65.5" font-size="15" font-weight="800" fill="#0f172a" text-anchor="middle">2</text>
+<text x="420" y="66" font-size="17" font-weight="700" fill="#fff" text-anchor="start">Delivery</text>
+<path d="M750 36h538l22 24-22 24h-538l22-24z" fill="#0f172a"/>
+<circle cx="796" cy="60" r="13" fill="#fff"/>
+<text x="796" y="65.5" font-size="15" font-weight="800" fill="#0f172a" text-anchor="middle">3</text>
+<text x="820" y="66" font-size="17" font-weight="700" fill="#fff" text-anchor="start">Production</text>
+<path d="M1380 36h238l22 24-22 24h-238l22-24z" fill="#0f172a"/>
+<circle cx="1426" cy="60" r="13" fill="#fff"/>
+<text x="1426" y="65.5" font-size="15" font-weight="800" fill="#0f172a" text-anchor="middle">4</text>
+<text x="1450" y="66" font-size="17" font-weight="700" fill="#fff" text-anchor="start">People</text>
+<rect x="40" y="150" width="260" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="54" y="164" width="34" height="34" rx="8" fill="#0f172a"/>
+<g transform="translate(54,164)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9v16M11 17c8 0 12-2 12-8"/><circle cx="11" cy="9" r="2.4" fill="#fff"/><circle cx="11" cy="25" r="2.4" fill="#fff"/><circle cx="23" cy="9" r="2.4" fill="#fff"/></g>
+<text x="98" y="180" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">homelab-pim-tools</text>
+<text x="98" y="199" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">service code</text>
+<rect x="40" y="300" width="260" height="400" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="54" y="314" width="34" height="34" rx="8" fill="#0f172a"/>
+<g transform="translate(54,314)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9v16M11 17c8 0 12-2 12-8"/><circle cx="11" cy="9" r="2.4" fill="#fff"/><circle cx="11" cy="25" r="2.4" fill="#fff"/><circle cx="23" cy="9" r="2.4" fill="#fff"/></g>
+<text x="98" y="330" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">homelab-gitops</text>
+<text x="98" y="349" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">desired state of the estate</text>
+<rect x="56" y="368" width="228" height="58" rx="8" fill="#f1f5f9"/>
+<text x="70" y="392" font-size="13.5" font-weight="700" fill="#0f172a" text-anchor="start">charts + apps</text>
+<text x="70" y="411" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">what runs in the cluster</text>
+<rect x="56" y="623" width="228" height="58" rx="8" fill="#f1f5f9"/>
+<text x="70" y="647" font-size="13.5" font-weight="700" fill="#0f172a" text-anchor="start">tofu/</text>
+<text x="70" y="666" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">every VM and container</text>
+<rect x="350" y="150" width="320" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="364" y="164" width="34" height="34" rx="8" fill="#2563eb"/>
+<g transform="translate(364,164)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l5 5 11-12"/></g>
+<text x="408" y="180" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">Build pipeline</text>
+<text x="408" y="199" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">tests, scans and builds the image,</text>
+<text x="408" y="216" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">then publishes it for the cluster</text>
+<rect x="350" y="355" width="320" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="364" y="369" width="34" height="34" rx="8" fill="#2563eb"/>
+<g transform="translate(364,369)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 14a9 9 0 0 0-16-2M9 20a9 9 0 0 0 16 2"/><path d="M9 7v6h6M25 27v-6h-6"/></g>
+<text x="408" y="385" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">ArgoCD</text>
+<text x="408" y="404" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">pulls git, syncs the cluster to it</text>
+<rect x="350" y="610" width="320" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="364" y="624" width="34" height="34" rx="8" fill="#2563eb"/>
+<g transform="translate(364,624)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="7" height="7"/><rect x="19" y="8" width="7" height="7"/><rect x="8" y="19" width="7" height="7"/><rect x="19" y="19" width="7" height="7"/></g>
+<text x="408" y="640" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">OpenTofu</text>
+<text x="408" y="659" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">plans and applies every guest</text>
+<rect x="750" y="112" width="560" height="644" rx="16" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="768" y="134" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="start">PROXMOX HYPERVISOR</text>
+<rect x="768" y="146" width="524" height="380" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="784" y="168" font-size="13.5" font-weight="700" fill="#0f172a" text-anchor="start">JBK8S01 · k3s cluster</text>
+<rect x="784" y="180" width="492" height="96" rx="12" fill="#f0fdf4" stroke="#15803d" stroke-width="1.5"/>
+<text x="798" y="202" font-size="12.5" font-weight="700" fill="#15803d" text-anchor="start">CHAT + PERSONAL DATA</text>
+<rect x="798.0" y="212.0" width="110.0" height="52.0" rx="8" fill="#ffffff" stroke="#15803d" stroke-opacity=".45"/>
+<text x="853.0" y="235.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Open WebUI</text>
+<text x="853.0" y="250.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">chat</text>
+<rect x="916.0" y="212.0" width="110.0" height="52.0" rx="8" fill="#ffffff" stroke="#15803d" stroke-opacity=".45"/>
+<text x="971.0" y="235.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">pim-tools</text>
+<text x="971.0" y="250.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">tool server</text>
+<rect x="1034.0" y="212.0" width="110.0" height="52.0" rx="8" fill="#ffffff" stroke="#15803d" stroke-opacity=".45"/>
+<text x="1089.0" y="235.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Radicale</text>
+<text x="1089.0" y="250.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">calendar · tasks</text>
+<rect x="1152.0" y="212.0" width="110.0" height="52.0" rx="8" fill="#ffffff" stroke="#15803d" stroke-opacity=".45"/>
+<text x="1207.0" y="235.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Syncthing</text>
+<text x="1207.0" y="250.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">notes vault</text>
+<rect x="784" y="290" width="492" height="96" rx="12" fill="#faf5ff" stroke="#7e22ce" stroke-width="1.5"/>
+<text x="798" y="312" font-size="12.5" font-weight="700" fill="#7e22ce" text-anchor="start">PHOTOS + MEDIA</text>
+<rect x="798.0" y="322.0" width="149.3" height="52.0" rx="8" fill="#ffffff" stroke="#7e22ce" stroke-opacity=".45"/>
+<text x="872.6666666666666" y="345.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Immich</text>
+<text x="872.6666666666666" y="360.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">photo library</text>
+<rect x="955.3" y="322.0" width="149.3" height="52.0" rx="8" fill="#ffffff" stroke="#7e22ce" stroke-opacity=".45"/>
+<text x="1030.0" y="345.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Postgres</text>
+<text x="1030.0" y="360.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">Immich's database</text>
+<rect x="1112.7" y="322.0" width="149.3" height="52.0" rx="8" fill="#ffffff" stroke="#7e22ce" stroke-opacity=".45"/>
+<text x="1187.3333333333335" y="345.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Tautulli</text>
+<text x="1187.3333333333335" y="360.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">Plex watch history</text>
+<rect x="784" y="400" width="492" height="110" rx="12" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+<text x="798" y="422" font-size="12.5" font-weight="700" fill="#b45309" text-anchor="start">OBSERVABILITY</text>
+<rect x="798.0" y="432.0" width="110.0" height="66.0" rx="8" fill="#ffffff" stroke="#b45309" stroke-opacity=".45"/>
+<text x="853.0" y="462.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Prometheus</text>
+<text x="853.0" y="477.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">metrics · alerts</text>
+<rect x="916.0" y="432.0" width="110.0" height="66.0" rx="8" fill="#ffffff" stroke="#b45309" stroke-opacity=".45"/>
+<text x="971.0" y="462.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Loki</text>
+<text x="971.0" y="477.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">logs</text>
+<rect x="1034.0" y="432.0" width="110.0" height="66.0" rx="8" fill="#ffffff" stroke="#b45309" stroke-opacity=".45"/>
+<text x="1089.0" y="462.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Tempo</text>
+<text x="1089.0" y="477.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">traces</text>
+<rect x="1152.0" y="432.0" width="110.0" height="66.0" rx="8" fill="#ffffff" stroke="#b45309" stroke-opacity=".45"/>
+<text x="1207.0" y="462.0" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">Grafana</text>
+<text x="1207.0" y="477.0" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">dashboards</text>
+<rect x="768" y="574" width="524" height="162" rx="12" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="782" y="596" font-size="12.5" font-weight="700" fill="#1d4ed8" text-anchor="start">VIRTUAL MACHINES + CONTAINERS</text>
+<rect x="782.0" y="606.0" width="118.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="841.0" y="630.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBDNS01</text>
+<text x="841.0" y="645.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">DNS · DHCP</text>
+<rect x="908.0" y="606.0" width="118.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="967.0" y="630.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBNAS01</text>
+<text x="967.0" y="645.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">NAS storage</text>
+<rect x="1034.0" y="606.0" width="118.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="1093.0" y="630.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBVM01</text>
+<text x="1093.0" y="645.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">jump box</text>
+<rect x="1160.0" y="606.0" width="118.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="1219.0" y="630.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBVM02</text>
+<text x="1219.0" y="645.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">ops · chat brain</text>
+<rect x="782.0" y="669.0" width="160.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="862.0" y="693.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBVM03</text>
+<text x="862.0" y="708.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">application server</text>
+<rect x="950.0" y="669.0" width="160.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="1030.0" y="693.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBVM04</text>
+<text x="1030.0" y="708.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">application server</text>
+<rect x="1118.0" y="669.0" width="160.0" height="55.0" rx="8" fill="#ffffff" stroke="#1d4ed8" stroke-opacity=".45"/>
+<text x="1198.0" y="693.5" font-size="12.5" font-weight="600" fill="#0f172a" text-anchor="middle">JBLLM01</text>
+<text x="1198.0" y="708.5" font-size="12.5" font-weight="400" fill="#475569" text-anchor="middle">LLM server</text>
+<rect x="768" y="790" width="250" height="70" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="782" y="804" width="34" height="34" rx="8" fill="#475569"/>
+<g transform="translate(782,804)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="22" height="14" rx="2"/><path d="M13 27h8"/></g>
+<text x="826" y="820" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">NVIDIA Shield</text>
+<text x="826" y="839" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">Plex Media Server</text>
+<rect x="1380" y="183" width="260" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="1394" y="197" width="34" height="34" rx="8" fill="#16a34a"/>
+<g transform="translate(1394,197)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="6" width="12" height="22" rx="2.5"/><path d="M15.5 24h3"/></g>
+<text x="1438" y="213" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">Phone</text>
+<text x="1438" y="232" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">chat · calendar · tasks</text>
+<text x="1438" y="249" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">photos</text>
+<rect x="1380" y="410" width="260" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="1394" y="424" width="34" height="34" rx="8" fill="#d97706"/>
+<g transform="translate(1394,424)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 26V17M17 26V9M25 26V13"/></g>
+<text x="1438" y="440" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">Operator</text>
+<text x="1438" y="459" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">dashboards · Discord alerts</text>
+<rect x="1380" y="610" width="260" height="90" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="1394" y="624" width="34" height="34" rx="8" fill="#16a34a"/>
+<g transform="translate(1394,624)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-9 10 9M10 15v11h14V15"/></g>
+<text x="1438" y="640" font-size="15" font-weight="700" fill="#0f172a" text-anchor="start">Household</text>
+<text x="1438" y="659" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">DNS · storage · media · apps</text>
+<path d="M300 195 C325.0 195 325.0 195 341 195" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M670 195 C727.0 195 727.0 228 775 228" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M300 400 C325.0 400 325.0 400 341 400" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M670 400 C719.0 400 719.0 338 759 338" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M300 655 C325.0 655 325.0 655 341 655" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M670 655 C719.0 655 719.0 655 759 655" fill="none" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<path d="M1276 228 C1328.0 228 1328.0 228 1371 228" fill="none" stroke="#16a34a" stroke-width="3.2" marker-end="url(#a16a34a)"/>
+<path d="M1276 338 C1328.0 338 1328.0 250 1371 250" fill="none" stroke="#16a34a" stroke-width="3.2" marker-end="url(#a16a34a)"/>
+<path d="M1292 655 C1336.0 655 1336.0 655 1371 655" fill="none" stroke="#16a34a" stroke-width="3.2" marker-end="url(#a16a34a)"/>
+<path d="M1018 825 C1289.5 825 1289.5 680 1371 680" fill="none" stroke="#16a34a" stroke-width="3.2" marker-end="url(#a16a34a)"/>
+<path d="M1030 574 L1030 519" fill="none" stroke="#d97706" stroke-width="3.2" marker-end="url(#ad97706)"/>
+<path d="M1276 440 C1328.0 440 1328.0 440 1371 440" fill="none" stroke="#d97706" stroke-width="3.2" marker-end="url(#ad97706)"/>
+<path d="M1276 472 C1328.0 472 1328.0 472 1371 472" fill="none" stroke="#dc2626" stroke-width="3.2" marker-end="url(#adc2626)"/>
+<rect x="40" y="790" width="630" height="70" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<path d="M66 825 h46" stroke="#2563eb" stroke-width="3.2" marker-end="url(#a2563eb)"/>
+<text x="132" y="830" font-size="14.5" font-weight="700" fill="#2563eb" text-anchor="start">deploy</text>
+<path d="M222 825 h46" stroke="#16a34a" stroke-width="3.2" marker-end="url(#a16a34a)"/>
+<text x="288" y="830" font-size="14.5" font-weight="700" fill="#16a34a" text-anchor="start">serve</text>
+<path d="M378 825 h46" stroke="#d97706" stroke-width="3.2" marker-end="url(#ad97706)"/>
+<text x="444" y="830" font-size="14.5" font-weight="700" fill="#d97706" text-anchor="start">observe</text>
+<path d="M534 825 h46" stroke="#dc2626" stroke-width="3.2" marker-end="url(#adc2626)"/>
+<text x="600" y="830" font-size="14.5" font-weight="700" fill="#dc2626" text-anchor="start">alert</text>
+<rect x="40" y="892" width="520" height="118" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="54" y="906" width="34" height="34" rx="8" fill="#0f172a"/>
+<g transform="translate(54,906)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="10" width="14" height="14" rx="2"/><path d="M14 6v4M20 6v4M14 24v4M20 24v4M6 14h4M6 20h4M24 14h4M24 20h4"/></g>
+<text x="98" y="928" font-size="12.5" font-weight="700" fill="#0f172a" text-anchor="start">HARDWARE: ONE RYZEN 7 2700X HOST</text>
+<text x="62.0" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">16</text>
+<text x="62.0" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">CPU threads</text>
+<text x="225.33333333333334" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">128 GB</text>
+<text x="225.33333333333334" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">DDR4 memory</text>
+<text x="388.6666666666667" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">8</text>
+<text x="388.6666666666667" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">guests · 38 vCPU</text>
+<rect x="580" y="892" width="520" height="118" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="594" y="906" width="34" height="34" rx="8" fill="#1d4ed8"/>
+<g transform="translate(594,906)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="17" cy="10" rx="9" ry="3.5"/><path d="M8 10v14c0 2 4 3.5 9 3.5s9-1.5 9-3.5V10M8 17c0 2 4 3.5 9 3.5s9-1.5 9-3.5"/></g>
+<text x="638" y="928" font-size="12.5" font-weight="700" fill="#1d4ed8" text-anchor="start">STORAGE: ZFS ON THE NAS</text>
+<text x="602.0" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">2</text>
+<text x="602.0" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">RAIDZ1 pools</text>
+<text x="765.3333333333334" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">8 TB</text>
+<text x="765.3333333333334" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">media on 4 HDD</text>
+<text x="928.6666666666667" y="974" font-size="26" font-weight="800" fill="#0f172a" text-anchor="start">1.4 TB</text>
+<text x="928.6666666666667" y="994" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start">data on 4 SSD</text>
+<rect x="1120" y="892" width="520" height="118" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="1134" y="906" width="34" height="34" rx="8" fill="#16a34a"/>
+<g transform="translate(1134,906)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="15" width="16" height="12" rx="2"/><path d="M12 15v-3a5 5 0 0 1 10 0v3"/></g>
+<text x="1178" y="928" font-size="12.5" font-weight="700" fill="#16a34a" text-anchor="start">REMOTE ACCESS: TAILSCALE VPN</text>
+<text x="1142" y="954" font-size="13" font-weight="400" fill="#0f172a" text-anchor="start">Nothing is open to the internet. Phones and laptops join a private</text>
+<text x="1142" y="973" font-size="13" font-weight="400" fill="#0f172a" text-anchor="start">WireGuard network and reach every host through one router on the LAN.</text>
+<text x="1142" y="992" font-size="13" font-weight="400" fill="#0f172a" text-anchor="start">Away from home they can route all their traffic through it too.</text>
+</svg>

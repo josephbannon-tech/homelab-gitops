@@ -11,77 +11,118 @@ Two companion repos extract focused pieces of this estate: [homelab-observabilit
 ## Architecture
 
 ```mermaid
-graph TB
-    github["homelab-gitops\ngithub.com"]
-    phone["Phone\nDAVx5 · Tasks.org · chat PWA"]
-    shield["NVIDIA Shield\nPlex Media Server"]
+%%{init: {"flowchart": {"wrappingWidth": 420}}}%%
+flowchart TB
+    subgraph ext["Outside the hypervisor"]
+        direction LR
+        github["GitHub<br/>homelab-gitops"]:::ext
+        phone["Phone<br/>chat PWA · DAVx5 · Tasks.org"]:::ext
+        tailscale["Tailscale<br/>tailnet"]:::ext
+        shield["NVIDIA Shield<br/>Plex Media Server"]:::ext
+        discord["Discord<br/>#homelab-alerts"]:::ext
+    end
 
-    subgraph host["JBSRV01 · Proxmox VE · Ryzen 7 2700X / 128 GB DDR4"]
-        dns["JBDNS01\nPi-hole v6 LXC\nDNS · DHCP · Tailscale router/exit-node"]
-        nas["JBNAS01\nTrueNAS SCALE\ntwo RAIDZ1 pools: SSD + HDD"]
-        vm01["JBVM01\nDesktop / jump box\nRDP · SMB dropbox"]
-        vm02["JBVM02\nOperations origin\nLLM router · chat brain\n(headless Claude Code)"]
-        vm03["JBVM03\nProd application\nserver"]
-        vm04["JBVM04\nApplication\nserver LXC"]
-        llm["JBLLM01\nCPU LLM server\nllama.cpp"]
+    subgraph host["JBSRV01 · Proxmox VE · Ryzen 7 2700X · 128 GB DDR4"]
+        subgraph net["Network and access"]
+            dns["JBDNS01 · LXC<br/>Pi-hole DNS + DHCP<br/>Tailscale subnet router"]:::host
+            vm01["JBVM01<br/>Desktop / jump box"]:::host
+        end
+        subgraph ops["Operations and AI"]
+            vm02["JBVM02<br/>Operations origin<br/>LLM router · chat brain<br/>(headless Claude Code)"]:::host
+            llm["JBLLM01<br/>CPU LLM server<br/>llama.cpp"]:::host
+        end
+        subgraph apps["Application servers"]
+            vm03["JBVM03<br/>Prod application server"]:::host
+            vm04["JBVM04 · LXC<br/>Application server"]:::host
+        end
+        subgraph store["Storage"]
+            nas["JBNAS01<br/>TrueNAS SCALE<br/>two RAIDZ1 pools: SSD + HDD"]:::host
+        end
 
-        subgraph k8s["JBK8S01 · k3s"]
-            argocd["ArgoCD\nGitOps controller"]
-            sealed["Sealed Secrets"]
-            prom["Prometheus\n+ Alertmanager"]
-            grafana["Grafana"]
-            pve_exp["PVE Exporter"]
-            blackbox["Blackbox Exporter\nDNS + HTTP SLI probes"]
-            exporters["Service exporters\nPi-hole · Plex · Tautulli"]
-            loki["Loki\nlog aggregation"]
-            promtail["Promtail\nlog shipper"]
-            tempo["Tempo\ntrace storage"]
-            otel["OTel Collector\nOTLP gateway"]
-            owui["Open WebUI\nchat front end (PWA)"]
-            radicale["Radicale\nCalDAV calendars + tasks"]
-            pim["pim-tools\ntool server: OpenAPI + MCP"]
-            syncthing["Syncthing\nvault peer"]
-            cnpg["CloudNativePG\nPostgres operator"]
-            immich["Immich\nphoto library"]
-            tautulli["Tautulli\nPlex activity"]
+        subgraph k8s["JBK8S01 · k3s cluster"]
+            subgraph plat["GitOps and secrets"]
+                argocd["ArgoCD<br/>syncs every app here"]:::plat
+                sealed["Sealed Secrets"]:::plat
+            end
+            subgraph pimg["Personal data and chat"]
+                owui["Open WebUI<br/>chat front end"]:::svc
+                pim["pim-tools<br/>tool server: OpenAPI + MCP"]:::svc
+                radicale["Radicale<br/>CalDAV calendars + tasks"]:::svc
+                syncthing["Syncthing<br/>vault peer"]:::svc
+            end
+            subgraph media["Photos and media"]
+                immich["Immich<br/>photo library"]:::media
+                cnpg["CloudNativePG<br/>Postgres operator"]:::media
+                tautulli["Tautulli<br/>Plex activity, from the Shield"]:::media
+            end
+            subgraph obs["Observability"]
+                prom["Prometheus<br/>+ Alertmanager"]:::obs
+                grafana["Grafana"]:::obs
+                loki["Loki<br/>logs"]:::obs
+                tempo["Tempo<br/>traces"]:::obs
+                promtail["Promtail<br/>log shipper"]:::obs
+                otel["OTel Collector<br/>OTLP gateway"]:::obs
+                blackbox["Blackbox Exporter<br/>probes DNS, WAN and each service"]:::obs
+                exporters["Service exporters<br/>scrape Pi-hole · Plex · Tautulli"]:::obs
+                pve_exp["PVE Exporter<br/>Proxmox API"]:::obs
+            end
         end
     end
 
-    discord["Discord\n#homelab-alerts"]
-    tailscale["Tailscale\ntailnet"]
+    subgraph key["Key"]
+        direction LR
+        k1["Host<br/>VM or LXC"]:::host
+        k2["Platform"]:::plat
+        k3["Personal data<br/>and chat"]:::svc
+        k4["Photos<br/>and media"]:::media
+        k5["Observability"]:::obs
+        k6["External"]:::ext
+        k7["Solid arrow: data or control flow"]:::note
+        k8["Dotted arrow: read-only query"]:::note
+        k9["Every host runs node_exporter,<br/>scraped by Prometheus (not drawn)"]:::note
+    end
 
     github -->|"git poll"| argocd
-    argocd --> k8s
     phone -->|"chat"| owui
     phone -->|"CalDAV sync"| radicale
-    owui -->|"chat completions"| vm02
+    phone <-->|"remote access"| tailscale
+    tailscale <-->|"subnet router"| dns
+    owui -->|"chat turns"| vm02
     vm02 -->|"MCP tool calls"| pim
     vm02 -->|"local models"| llm
     pim -->|"CalDAV"| radicale
-    pim -->|"OTLP"| otel
-    cnpg -->|"Cluster CR"| immich
+    pim -->|"traces"| otel
+    cnpg -->|"Postgres"| immich
     immich -->|"NFS originals"| nas
-    tautulli --> shield
-    exporters --> dns
-    exporters --> shield
-    prom -->|"node_exporter"| nas
-    prom -->|"node_exporter"| vm01
-    prom -->|"node_exporter"| vm02
-    prom -->|"node_exporter"| vm03
-    prom -->|"node_exporter"| vm04
-    prom -->|"node_exporter"| llm
-    prom -->|"node_exporter"| dns
-    pve_exp --> host
-    blackbox -->|"DNS probe :53/udp"| dns
+    promtail -->|"logs"| loki
     otel -->|"OTLP"| tempo
-    grafana -.->|"queries"| prom
-    grafana -.->|"queries"| loki
-    grafana -.->|"queries"| tempo
-    promtail -->|"push logs"| loki
-    prom -->|"webhook"| discord
-    dns <-->|"subnet router"| tailscale
-    phone <-->|"remote access"| tailscale
+    grafana -.-> prom
+    grafana -.-> loki
+    grafana -.-> tempo
+    prom -->|"alerts"| discord
+
+    classDef host fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    classDef plat fill:#e2e8f0,stroke:#475569,color:#0f172a
+    classDef svc fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef media fill:#f3e8ff,stroke:#7e22ce,color:#0f172a
+    classDef obs fill:#fef3c7,stroke:#b45309,color:#0f172a
+    classDef ext fill:#f1f5f9,stroke:#64748b,color:#0f172a,stroke-dasharray:4 3
+    classDef note fill:#ffffff,stroke:#94a3b8,color:#0f172a,text-align:left
+    style host fill:none,stroke:#1d4ed8,stroke-width:2px
+    style k8s fill:none,stroke:#475569,stroke-width:2px
+    style key fill:none,stroke:#94a3b8,stroke-dasharray:4 3
+    style ext fill:none,stroke:#64748b,stroke-dasharray:4 3
+    style net fill:none,stroke:#94a3b8
+    style ops fill:none,stroke:#94a3b8
+    style apps fill:none,stroke:#94a3b8
+    style store fill:none,stroke:#94a3b8
+    style plat fill:none,stroke:#94a3b8
+    style pimg fill:none,stroke:#94a3b8
+    style media fill:none,stroke:#94a3b8
+    style obs fill:none,stroke:#94a3b8
 ```
+
+Boxes are coloured by purpose and grouped under a heading; the key is at the top. Arrows show only the flows that cross a group. Host metrics are left out on purpose: every host runs node_exporter and Prometheus scrapes all of them, which would be nine more arrows saying the same thing.
 
 ---
 

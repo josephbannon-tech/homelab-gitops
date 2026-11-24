@@ -39,8 +39,14 @@ kube-prometheus-stack:
     # token on every ArgoCD render (its `lookup` sees no cluster under
     # `helm template`), and the two running pods drift into 401s until both
     # are restarted (observability.md known issue, 2026-05-17 -> 2026-09-30).
+    # Pinned to a release tag. The chart default is `latest`, so the running
+    # version changed whenever the node re-pulled the image. Renovate tracks
+    # the tag.
     imageRenderer:
       enabled: true
+      image:
+        repository: grafana/grafana-image-renderer
+        tag: v5.12.11
       existingSecret: grafana-image-renderer-token
       replicas: 1
       resources:
@@ -716,6 +722,22 @@ kube-prometheus-stack:
                 impact: "The weekly disk sweep on JBVM02 has stopped; disk hygiene will drift and the root filesystem can fill unnoticed again."
                 action: "Check `systemctl status jbvm02-maintenance.timer` on JBVM02."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/jbvm02-maintenance-stale.md"
+            # The knowledge-base lint runs nightly at 06:10 on JBVM02 and writes
+            # its finding counts plus this timestamp. 36h = one missed run plus
+            # a 12h grace. Without this, a dead timer leaves the finding counts
+            # frozen at their last (clean-looking) values.
+            - alert: DocsLintStale
+              expr: time() - homelab_docs_lint_last_run_timestamp_seconds > 129600
+              for: 1h
+              labels: {severity: warning, service: platform}
+              annotations:
+                summary: "The nightly docs lint on JBVM02 has not run in over 36h"
+                host: "JBVM02 (192.168.0.203)"
+                value: "last run {{ $value | humanizeDuration }} ago"
+                threshold: "no lint run for >36h (nightly cadence, 12h grace)"
+                impact: "The docs-drift counts on the dashboard are frozen. Stale documentation goes unnoticed until the next quarterly audit."
+                action: "Check `systemctl status docs-lint.timer docs-lint.service` on JBVM02."
+                runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/docs-lint-stale.md"
 
     # Host state. One script per host writes a small textfile every 5 minutes
     # (reboot pending, failed systemd units, Promtail's sent-entries counter,
@@ -1190,7 +1212,8 @@ kube-prometheus-stack:
     # alerts a silent log-ingestion failure would leave dashboards quietly
     # blank.
     # JBLLM01 (VM 108) is the always-on CPU LLM server tier: the fallback for
-    # the desktop fast tier and the tool-calling backend for the phone chat.
+    # the desktop fast tier. The phone chat stopped using it on 2026-10-06,
+    # when its brain moved to headless Claude Code.
     # Its blackbox /health probe was info-only from 2026-09-06 while a baseline
     # accrued (1.0 throughout); promoted to a warning 2026-09-09. The fast tier
     # (JBPC004) stays info-only by design: "the desktop is off" is normal.
@@ -1206,7 +1229,7 @@ kube-prometheus-stack:
                 summary: "LLM server tier unreachable (blackbox probe to 192.168.0.208:8080/health)"
                 host: "JBLLM01 (192.168.0.208)"
                 threshold: "probe_success == 0 for 10m (probe every 60s)"
-                impact: "Open WebUI's fallback model and the phone chat's tool backend are down when the desktop is asleep or in gaming mode. Nothing family-facing depends on it."
+                impact: "Open WebUI has no local model while the desktop is asleep or in gaming mode. The phone chat is unaffected (it runs on Claude Code). Nothing family-facing depends on it."
                 action: "`curl http://192.168.0.208:8080/health` from JBVM02; `ssh jbannon@192.168.0.208 'systemctl status llama-swap'`; `qm status 108` on JBSRV01. Host doc: docs/jbllm01.md."
                 runbook_url: "https://github.com/josephbannon-tech/homelab-observability/blob/main/runbooks/alerts/llm-server-tier-down.md"
 

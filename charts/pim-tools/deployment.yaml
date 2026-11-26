@@ -30,7 +30,7 @@ spec:
           # Built by github.com/josephbannon-tech/homelab-pim-tools CI (ruff,
           # pytest, Trivy HIGH/CRITICAL gate) and pinned here by digest, so a
           # rebuild never changes what runs without a reviewed commit.
-          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-91a3c2f754043245a7818d4fe765dcd03c01249f@sha256:aca751eef514a1b7935dd882b8d8a8bc43b5d7fcbdfc996e53ae55218a1c9b52
+          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-da774c2371df05173eb43b00a369ecda44a86c02@sha256:07004403c3e4a584c3ea08c976c6f0aad449be98c10a6dd4647ecce32be4d7dd
           ports:
             - name: http
               containerPort: 8000
@@ -40,10 +40,12 @@ spec:
               value: http://radicale.pim.svc:5232/
             - name: RADICALE_CALENDAR
               value: personal
-            # Read-only second calendar (v0.4.0): recurring time-blocks live
-            # apart from appointments, and list_events reads them on request.
+            # More event calendars. routine (v0.4.0) holds the recurring
+            # time-blocks, read on request and never written to by add_event
+            # or move_event. The others (v0.9.0) are kinds of appointment, one
+            # colour each on the phone: an event's colour is its calendar's.
             - name: RADICALE_EXTRA_CALENDARS
-              value: routine
+              value: social,health,work,travel,home,routine
             # Task lists holding repeating jobs. A job ticked on a phone goes
             # straight to Radicale, so a background pass (every 300 s by
             # default) finds it and schedules its next turn.

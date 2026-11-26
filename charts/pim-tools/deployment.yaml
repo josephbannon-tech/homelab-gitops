@@ -45,7 +45,7 @@ spec:
             # or move_event. The others (v0.9.0) are kinds of appointment, one
             # colour each on the phone: an event's colour is its calendar's.
             - name: RADICALE_EXTRA_CALENDARS
-              value: social,health,work,travel,home,routine
+              value: social,health,work,travel,routine
             # Task lists holding repeating jobs. A job ticked on a phone goes
             # straight to Radicale, so a background pass (every 300 s by
             # default) finds it and schedules its next turn.

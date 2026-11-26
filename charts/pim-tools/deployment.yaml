@@ -17,8 +17,12 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
+        # Same uid/gid as Syncthing (v0.7.0): the two pods share the notes
+        # folder, and folders the phone creates arrive 755, so a different
+        # uid could append only at the top level. The image has no files
+        # owned by its default uid 10001 and writes nothing outside /vault.
+        runAsUser: 1000
+        runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -48,6 +52,12 @@ spec:
             # Traces to the in-cluster OTel Collector (OTLP/HTTP) -> Tempo.
             # The second OTLP producer on the estate after the NAS media
             # pipeline, and the first running inside the cluster.
+            # Notes (v0.7.0): the Syncthing vault, which the phone keeps in
+            # step. Read and append only; Private/ is invisible to the tools.
+            - name: NOTES_DIR
+              value: /vault
+            - name: NOTES_EXCLUDE
+              value: Private
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector.monitoring.svc:4318
             - name: OTEL_SERVICE_NAME
@@ -78,3 +88,12 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: vault
+              mountPath: /vault
+      volumes:
+        # Syncthing's PVC. ReadWriteOnce is per node, and both pods run on the
+        # one node, so the volume is shared without a second copy.
+        - name: vault
+          persistentVolumeClaim:
+            claimName: syncthing-vault

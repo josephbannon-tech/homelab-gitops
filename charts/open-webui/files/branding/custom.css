@@ -1,0 +1,62 @@
+/* Calcifer: ember orange on dark charcoal. Open WebUI links /static/custom.css
+   from every page; this file is mounted over the empty one it ships with.
+   Unlayered rules here win over Tailwind's layered theme variables. */
+
+:root {
+  --calcifer-ember: #ff7a1f;
+  --calcifer-ember-deep: #f2541b;
+  --calcifer-glow: #ffd966;
+
+  /* The grey scale every surface is drawn from, warmed toward the flame.
+     Same lightness steps as the stock theme, so contrast is unchanged. */
+  --color-gray-50: oklch(98% 0.004 60);
+  --color-gray-100: oklch(94% 0.007 60);
+  --color-gray-200: oklch(92% 0.008 60);
+  --color-gray-300: oklch(85% 0.010 58);
+  --color-gray-400: oklch(77% 0.012 56);
+  --color-gray-500: oklch(69% 0.014 54);
+  --color-gray-600: oklch(51% 0.014 52);
+  --color-gray-700: oklch(42% 0.014 50);
+  --color-gray-800: oklch(32% 0.012 50);
+  --color-gray-850: oklch(27% 0.011 50);
+  --color-gray-900: oklch(21% 0.010 50);
+  --color-gray-950: oklch(17% 0.009 50);
+}
+
+html {
+  accent-color: var(--calcifer-ember);
+}
+
+textarea,
+[contenteditable="true"],
+#chat-input {
+  caret-color: var(--calcifer-ember);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--calcifer-ember) 35%, transparent);
+}
+
+/* Send button: the one control that should look like the brand. */
+#send-message-button:not(:disabled) {
+  background-color: var(--calcifer-ember) !important;
+  color: #1c120c !important;
+}
+#send-message-button:not(:disabled):hover {
+  background-color: var(--calcifer-ember-deep) !important;
+}
+
+/* Links in answers. */
+.markdown-prose a,
+.prose a {
+  color: var(--calcifer-ember);
+}
+.dark .markdown-prose a,
+.dark .prose a {
+  color: #ff9a4d;
+}
+
+/* Keyboard focus ring. */
+:focus-visible {
+  outline-color: var(--calcifer-ember);
+}

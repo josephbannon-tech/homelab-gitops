@@ -99,8 +99,9 @@ open-webui:
     - name: EXTERNAL_PWA_MANIFEST_URL
       value: "http://localhost:8080/static/calcifer/manifest.json"
 
-  # --- Phone-app identity (templates/calcifer-branding.yaml) ---------------------
-  # A folder inside the static directory, served at /static/calcifer/.
+  # --- Calcifer identity (templates/calcifer-branding.yaml) -----------------------
+  # A folder inside the static directory, served at /static/calcifer/, plus
+  # single files over the stock logos and custom.css.
   volumes:
     - name: calcifer-branding
       configMap:
@@ -110,6 +111,49 @@ open-webui:
       - name: calcifer-branding
         mountPath: /app/backend/open_webui/static/calcifer
         readOnly: true
+      # In-app logo files and theme, one read-only file each over the
+      # stock asset of the same name (see the template for why this holds).
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/favicon.png
+        subPath: favicon.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/favicon-96x96.png
+        subPath: favicon-96x96.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/favicon.ico
+        subPath: favicon.ico
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/favicon.svg
+        subPath: favicon.svg
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/apple-touch-icon.png
+        subPath: apple-touch-icon.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/logo.png
+        subPath: logo.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/splash.png
+        subPath: splash.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/splash-dark.png
+        subPath: splash-dark.png
+        readOnly: true
+      - name: calcifer-branding
+        mountPath: /app/backend/open_webui/static/custom.css
+        subPath: custom.css
+        readOnly: true
+
+  # subPath mounts do not follow ConfigMap edits: bump this after changing
+  # anything in files/branding/ so the pod restarts and loads it.
+  podAnnotations:
+    calcifer/branding-rev: "2"
 
 # --- Nightly backup to the NAS (templates/backup-cronjob.yaml) ------------------
 # 02:30 Europe/London: after JBNAS01 config (02:15), before the off-site seed

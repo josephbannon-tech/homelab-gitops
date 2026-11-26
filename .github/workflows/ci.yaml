@@ -18,6 +18,20 @@ jobs:
       - run: pip install yamllint
       - run: yamllint -c .yamllint.yaml .
 
+  no-vendored-deps:
+    name: No vendored chart dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fail if dependency tarballs or lockfiles are tracked
+        run: |
+          found=$(git ls-files 'charts/*/charts/*' 'charts/*/Chart.lock' '*.tgz')
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::Vendored Helm dependencies are tracked. ArgoCD renders these instead of the version in Chart.yaml."
+            exit 1
+          fi
+
   dashboards-in-sync:
     name: Dashboard generator is source of truth
     runs-on: ubuntu-latest

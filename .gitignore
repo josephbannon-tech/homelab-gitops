@@ -1,0 +1,6 @@
+# Helm dependency output. ArgoCD fetches each chart's dependencies at the
+# version in Chart.yaml; a vendored tarball in charts/<name>/charts/ overrides
+# that silently, so neither the tarballs nor the lockfiles are tracked.
+charts/*/charts/
+charts/*/Chart.lock
+*.tgz

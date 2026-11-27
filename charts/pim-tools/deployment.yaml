@@ -30,7 +30,7 @@ spec:
           # Built by github.com/josephbannon-tech/homelab-pim-tools CI (ruff,
           # pytest, Trivy HIGH/CRITICAL gate) and pinned here by digest, so a
           # rebuild never changes what runs without a reviewed commit.
-          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-fc6d46dc5363b29f00d7281602ae4420b8135f1b@sha256:bfcb3d6f94a6179fb4c50cfbc7522052f78d4e5032a76cc4a396d5c452c5bf18
+          image: ghcr.io/josephbannon-tech/homelab-pim-tools:sha-2f0fb171fd17f33ef933dc86c671e14d289f4137@sha256:7bbd62c1c81fdb6a4fa0c8ba21d763c5ef86b6d305084f3680b10d5cd921516b
           ports:
             - name: http
               containerPort: 8000

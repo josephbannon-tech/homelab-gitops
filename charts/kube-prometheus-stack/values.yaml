@@ -46,7 +46,7 @@ kube-prometheus-stack:
       enabled: true
       image:
         repository: grafana/grafana-image-renderer
-        tag: v5.12.11
+        tag: v5.12.12
       existingSecret: grafana-image-renderer-token
       replicas: 1
       resources:
